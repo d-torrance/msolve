@@ -1,0 +1,30 @@
+Source: msolve
+Section: math
+Priority: optional
+Maintainer: DDebian Science Maintainers <debian-science-maintainers@lists.alioth.debian.org>
+Uploaders: Doug Torrance <dtorrance@piedmont.edu>
+Build-Depends: debhelper (>= 11), libgmp-dev,libmpfr-dev, libflint-dev
+Standards-Version: 4.5.1
+Homepage: https://msolve.lip6.fr/
+Vcs-Browser: https://salsa.debian.org/science-team/msolve
+Vcs-Git: https://salsa.debian.org/science-team/msolve
+Rules-Requires-Root: no
+
+Package: msolve
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: library for solving multivariate polynomial systems.
+ msolve is a C library for solving multivariate polynomial systems of
+ equations. It relies on computer algebra, a.k.a. symbolic computation,
+ algorithms to compute algebraic representations of the solution set
+ from which many, if not all, informations can be extracted.  Solving
+ polynomial systems with msolve is global by contrast to local
+ numerical routines.  The use of computer algebra methods allow also
+ the user to bypass classical numerical issues encountered by numerical
+ methods for polynomial system solving.  msolve relies mainly on
+ Gröbner bases algorithms (see below for a some basic definitions and
+ properties). It is highly optimized, uses AVX2 vectorization
+ instructions and multi-threading.
+ .
+ It uses the GMP library (handling multi-precision integers) and the
+ FLINT library (handling arithmetics of univariate polynomials).

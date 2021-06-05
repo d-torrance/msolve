@@ -1,0 +1,2 @@
+version=4
+https://gitlab.lip6.fr/safey/msolve/-/tags .*/msolve-v@ANY_VERSION@@ARCHIVE_EXT@
