@@ -2,7 +2,7 @@ Source: msolve
 Section: math
 Priority: optional
 Maintainer: Debian Math Team <team+math@tracker.debian.org>
-Uploaders: Doug Torrance <dtorrance@piedmont.edu>
+Uploaders: Doug Torrance <dtorrance@debian.org>
 Build-Depends: debhelper (>= 11), libgmp-dev,libmpfr-dev, libflint-dev
 Standards-Version: 4.5.1
 Homepage: https://msolve.lip6.fr/
