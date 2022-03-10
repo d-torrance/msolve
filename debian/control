@@ -3,7 +3,7 @@ Section: math
 Priority: optional
 Maintainer: Debian Math Team <team+math@tracker.debian.org>
 Uploaders: Doug Torrance <dtorrance@debian.org>
-Build-Depends: debhelper (>= 11), libgmp-dev,libmpfr-dev, libflint-dev
+Build-Depends: debhelper-compat (= 13), libgmp-dev,libmpfr-dev, libflint-dev
 Standards-Version: 4.6.0
 Homepage: https://msolve.lip6.fr/
 Vcs-Browser: https://salsa.debian.org/math-team/msolve
