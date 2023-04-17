@@ -22,6 +22,7 @@ interval *real_roots(mpz_t *, unsigned long,
                      unsigned long int *,
                      unsigned long int *,
                      const int32_t,
+                     int,
                      int);
 
 void display_roots_system(FILE *, interval *, unsigned long int);
@@ -35,9 +36,14 @@ void mpz_poly_eval_2exp_naive(mpz_t *,
                               mpz_t *, const int,
                               mpz_t *, mpz_t *);
 
+void mpz_poly_eval_2exp_naive2(mpz_t *,
+                              unsigned long int,
+                              mpz_t, const int,
+                              mpz_t, mpz_t);
+
 void get_values_at_bounds(mpz_t *, unsigned long int, interval *, mpz_t *);
 
-void refine_QIR_positive_root(mpz_t *, unsigned long int *, interval *,
+void refine_QIR_positive_root(mpz_t *, long int *, interval *,
                                      mpz_t *, int, int);
 
 int mpz_scalar_product_interval(mpz_t *, unsigned long int, long,

@@ -163,7 +163,7 @@ static inline int32_t display_monomial_full(FILE *file, const int nv,
   }
   return b;
 }
-static void print_msolve_polynomials_ff_32(
+static void print_msolve_polynomials_ff(
         FILE *file,
         const bi_t from,
         const bi_t to,
@@ -178,30 +178,46 @@ static void print_msolve_polynomials_ff_32(
 
     len_t len   = 0;
     hm_t *hm    = NULL;
-    cf32_t *cf  = NULL;
 
     const len_t nv  = ht->nv;
+    const len_t ebl = ht->ebl;
+    const len_t evl = ht->evl;
 
     /* state context if full basis is printed */
     if (from == 0 && to == bs->lml) {
         if (lead_ideal_only != 0) {
-            fprintf(file, "Lead ideal for input in characteristic ");
+            fprintf(file, "#Lead ideal for input in characteristic ");
         } else {
-            fprintf(file, "Reduced Groebner basis for input in characteristic ");
+            fprintf(file, "#Reduced Groebner basis for input in characteristic ");
         }
         fprintf(file, "%u\n", st->fc);
-        fprintf(file, "for variable order ");
+        fprintf(file, "#for variable order ");
         for (i = 0; i < nv-1; ++i) {
             fprintf(file, "%s, ", vnames[i]);
         }
         fprintf(file, "%s\n", vnames[nv-1]);
-        fprintf(file, "w.r.t. grevlex monomial ordering\n");
-        fprintf(file, "consisting of %u elements:\n", bs->lml);
+        fprintf(file, "#w.r.t. grevlex monomial ordering\n");
+        fprintf(file, "#consisting of %u elements:\n", bs->lml);
     }
 
 
+    int *evi    =   (int *)malloc((unsigned long)ht->nv * sizeof(int));
+    if (ebl == 0) {
+        for (i = 1; i < evl; ++i) {
+            evi[i-1]    =   i;
+        }
+    } else {
+        for (i = 1; i < ebl; ++i) {
+            evi[i-1]    =   i;
+        }
+        for (i = ebl+1; i < evl; ++i) {
+            evi[i-2]    =   i;
+        }
+    }
+
     if (lead_ideal_only != 0) {
         int ctr = 0;
+        fprintf(file, "[");
         for (i = from; i < to; ++i) {
             idx = bs->lmps[i];
             if (bs->hm[idx] == NULL) {
@@ -209,29 +225,29 @@ static void print_msolve_polynomials_ff_32(
             } else {
                 hm  = bs->hm[idx]+OFFSET;
                 len = bs->hm[idx][LENGTH];
-                cf  = bs->cf_32[bs->hm[idx][COEFFS]];
                 ctr = 0;
                 k = 0;
                 while (ctr == 0 && k < nv) {
-                    if (ht->ev[hm[0]][k] > 0) {
-                        fprintf(file, "%s^%u",vnames[k], ht->ev[hm[0]][k]);
+                    if (ht->ev[hm[0]][evi[k]] > 0) {
+                        fprintf(file, "%s^%u",vnames[k], ht->ev[hm[0]][evi[k]]);
                         ctr++;
                     }
                     k++;
                 }
                 for (;k < nv; ++k) {
-                    if (ht->ev[hm[0]][k] > 0) {
-                        fprintf(file, "*%s^%u",vnames[k], ht->ev[hm[0]][k]);
+                    if (ht->ev[hm[0]][evi[k]] > 0) {
+                        fprintf(file, "*%s^%u",vnames[k], ht->ev[hm[0]][evi[k]]);
                     }
                 }
                 if (i < to-1) {
                     fprintf(file, ",\n");
                 } else {
-                    fprintf(file, "\n");
+                    fprintf(file, "]:\n");
                 }
             }
         }
     } else {
+        fprintf(file, "[");
         for (i = from; i < to; ++i) {
             idx = bs->lmps[i];
             if (bs->hm[idx] == NULL) {
@@ -239,29 +255,55 @@ static void print_msolve_polynomials_ff_32(
             } else {
                 hm  = bs->hm[idx]+OFFSET;
                 len = bs->hm[idx][LENGTH];
-                cf  = bs->cf_32[bs->hm[idx][COEFFS]];
-                fprintf(file, "%u", cf[0]);
+                switch (st->ff_bits) {
+                case 0 :
+                  fprintf(file, "%u", bs->cf_32[bs->hm[idx][COEFFS]][0]);
+                  break;
+                case 8:
+                  fprintf(file, "%u", bs->cf_8[bs->hm[idx][COEFFS]][0]);
+                  break;
+                case 16:
+                  fprintf(file, "%u", bs->cf_16[bs->hm[idx][COEFFS]][0]);
+                  break;
+                case 32:
+                  fprintf(file, "%u", bs->cf_32[bs->hm[idx][COEFFS]][0]);
+                  break;
+                }
                 for (k = 0; k < nv; ++k) {
-                    if (ht->ev[hm[0]][k] > 0) {
-                        fprintf(file, "*%s^%u",vnames[k], ht->ev[hm[0]][k]);
+                    if (ht->ev[hm[0]][evi[k]] > 0) {
+                        fprintf(file, "*%s^%u",vnames[k], ht->ev[hm[0]][evi[k]]);
                     }
                 }
                 for (j = 1; j < len; ++j) {
-                    fprintf(file, "+%u", cf[j]);
-                    for (k = 0; k < nv; ++k) {
-                        if (ht->ev[hm[j]][k] > 0) {
-                            fprintf(file, "*%s^%u",vnames[k], ht->ev[hm[j]][k]);
-                        }
-                    }
+		  switch (st->ff_bits) {
+		  case 0:
+		    fprintf(file, "+%u", bs->cf_32[bs->hm[idx][COEFFS]][j]);
+		    break;
+		  case 8:
+		    fprintf(file, "+%u", bs->cf_8[bs->hm[idx][COEFFS]][j]);
+		    break;
+		  case 16:
+		    fprintf(file, "+%u", bs->cf_16[bs->hm[idx][COEFFS]][j]);
+		    break;
+		  case 32:
+		    fprintf(file, "+%u", bs->cf_32[bs->hm[idx][COEFFS]][j]);
+		    break;
+		  }
+		  for (k = 0; k < nv; ++k) {
+		    if (ht->ev[hm[j]][evi[k]] > 0) {
+		      fprintf(file, "*%s^%u",vnames[k], ht->ev[hm[j]][evi[k]]);
+		    }
+		  }
                 }
                 if (i < to-1) {
                     fprintf(file, ",\n");
                 } else {
-                    fprintf(file, "\n");
+                    fprintf(file, "]:\n");
                 }
             }
         }
     }
+    free(evi);
 }
 
 static void print_ff_basis_data(
@@ -276,12 +318,12 @@ static void print_ff_basis_data(
     if (print_gb > 0) {
         if(fn != NULL){
             FILE *ofile = fopen(fn, mode);
-            print_msolve_polynomials_ff_32(ofile, 0, bs->lml, bs, ht,
+            print_msolve_polynomials_ff(ofile, 0, bs->lml, bs, ht,
                     st, gens->vnames, 2-print_gb);
             fclose(ofile);
         }
         else{
-            print_msolve_polynomials_ff_32(stdout, 0, bs->lml, bs, ht,
+            print_msolve_polynomials_ff(stdout, 0, bs->lml, bs, ht,
                     st, gens->vnames, 2-print_gb);
         }
     }
@@ -291,7 +333,7 @@ static int32_t get_nvars(const char *fn)
 {
   FILE *fh  = fopen(fn,"r");
   /** load lines and store data */
-  const int max_line_size  = 5000;
+  const int max_line_size  = 1073741824;
   char *line  = (char *)malloc((nelts_t)max_line_size * sizeof(char));
 
   /** get first line (variables) */
@@ -493,7 +535,7 @@ static void get_nterms_and_all_nterms(FILE *fh, char **linep,
     size_t len = 0;
     while(getdelim(&line, &len, ',', fh) != -1) {
         for (k = 0, j = 0; j < len; ++j) {
-            if (line[j] != '\n') {
+            if (line[j] != '\n' && line[j] != ' ') {
                 line[k++] = line[j];
             }
         }
@@ -588,10 +630,11 @@ static inline void get_term(const char *line, char **prev_pos,
 }
 
 
+/*assumes that coeffs in file fit in word size */
 static int get_coefficient_ff_and_term_from_line(char *line, int32_t nterms,
                                           int32_t field_char,
                                           data_gens_ff_t *gens, int32_t pos){
-  char *prev_pos;
+  char *prev_pos = NULL;
   size_t term_size = 50000;
   char *term  = (char *)malloc(term_size * sizeof(char));
   long int cf_tmp  = 0; /** temp for coefficient value, possibly coeff is negative. */
@@ -601,10 +644,16 @@ static int get_coefficient_ff_and_term_from_line(char *line, int32_t nterms,
   if(term != NULL){
     int32_t iv_tmp  = (int32_t)strtol(term, NULL, 10);
     if (iv_tmp == 0) {
-      if (term[0] == '-') {
-        iv_tmp = -1;
-      } else {
-        iv_tmp = 1;
+      switch (term[0]) {
+          case '0':
+            iv_tmp = 0;
+            break;
+          case '-':
+            iv_tmp = -1;
+            break;
+          default:
+            iv_tmp = 1;
+            break;
       }
     }
     while (iv_tmp < 0) {
@@ -748,7 +797,7 @@ static void get_coeffs_and_exponents_ff32(FILE *fh, char **linep, nelts_t all_nt
     for(i = 0; i < *nr_gens; i++){
         if (getdelim(&line, &len, ',', fh) != -1) {
             for (k = 0, j = 0; j < len; ++j) {
-                if (line[j] != '\n') {
+                if (line[j] != '\n' && line[j] != ' ') {
                     line[k++] = line[j];
                 }
             }
@@ -781,19 +830,19 @@ static void get_coeffs_and_exponents_mpz(FILE *fh, char **linep, nelts_t all_nte
     }
 
     gens->cfs = (int32_t*)(malloc(sizeof(int32_t) * all_nterms));
-    if(gens->field_char==0){
-        gens->mpz_cfs = (mpz_t **)(malloc(sizeof(mpz_t *) * 2 * all_nterms));
-        for(long i = 0; i < 2 * all_nterms; i++){
-            gens->mpz_cfs[i]  = (mpz_t *)malloc(sizeof(mpz_t));
-            mpz_init(*(gens->mpz_cfs[i]));
-        }
+
+    gens->mpz_cfs = (mpz_t **)(malloc(sizeof(mpz_t *) * 2 * all_nterms));
+    for(long i = 0; i < 2 * all_nterms; i++){
+      gens->mpz_cfs[i]  = (mpz_t *)malloc(sizeof(mpz_t));
+      mpz_init(*(gens->mpz_cfs[i]));
     }
+
     gens->exps = (int32_t *)calloc(all_nterms * gens->nvars, sizeof(int32_t));
     long i, j, k;
     for(i = 0; i < *nr_gens; i++){
         if (getdelim(&line, &len, ',', fh) != -1) {
             for (k = 0, j = 0; j < len; ++j) {
-                if (line[j] != '\n') {
+                if (line[j] != '\n' && line[j] != ' ') {
                     line[k++] = line[j];
                 }
             }
@@ -869,14 +918,15 @@ static inline void get_data_from_file(char *fn, int32_t *nr_vars,
                             &nterms, &all_nterms);
 
   fclose(fh);
-
   fh = fopen(fn, "r");
-  if(gens->field_char>0){
+
+  if(gens->field_char){
     get_coeffs_and_exponents_ff32(fh, &line, all_nterms, nr_gens, gens);
   }
   else{
     get_coeffs_and_exponents_mpz(fh, &line, all_nterms, nr_gens, gens);
   }
+
   free(line);
   fclose(fh);
 
@@ -910,42 +960,52 @@ static inline void display_gens_ff(FILE *fh, data_gens_ff_t *gens){
       }
     }
     pos+=gens->lens[i];
-    fprintf(fh,"\n");
+    if(i < gens->ngens-1){
+      fprintf(fh,",\n");
+    }
+    else{
+      fprintf(fh,"\n");
+    }
   }
 }
 
 static void display_gens_mpz(FILE *fh, data_gens_ff_t *gens){
-  long pos = 0;
+  long pos = 0, posex = 0;
   for(long i = 0; i < gens->ngens; i++){
     for(long j = 0; j < gens->lens[i]-1; j++){
-      if(mpz_cmp_ui(*(gens->mpz_cfs[pos+j]), 1) != 0){
-        mpz_out_str(fh, 10, *(gens->mpz_cfs[pos+j]));
-        display_monomial(fh, gens, pos+j, &gens->exps);
+      if(mpz_cmp_ui(*(gens->mpz_cfs[pos+2*j]), 1) != 0){
+        mpz_out_str(fh, 10, *(gens->mpz_cfs[pos+2*j]));
+        display_monomial(fh, gens, posex+j, &gens->exps);
       }
       else{
-        display_monomial_single(fh, gens, pos+j, &gens->exps);
+        display_monomial_single(fh, gens, posex+j, &gens->exps);
       }
-      if(mpz_cmp_ui(*(gens->mpz_cfs[pos+j+1]), 0) > 0){
+      if(mpz_cmp_ui(*(gens->mpz_cfs[pos+2*(j+1)]), 0) > 0){
         fprintf(fh, "+");
       }
     }
-    if(mpz_cmp_ui(*(gens->mpz_cfs[pos+ (gens->lens[i]) -1]), 1) != 0){
-      mpz_out_str(fh, 10, *(gens->mpz_cfs[pos+gens->lens[i]-1]));
-      display_monomial(fh, gens, pos+gens->lens[i]-1, &gens->exps);
+    if(mpz_cmp_ui(*(gens->mpz_cfs[pos+ 2*(gens->lens[i] -1)]), 1) != 0){
+      mpz_out_str(fh, 10, *(gens->mpz_cfs[pos+2*(gens->lens[i]-1)]));
+      display_monomial(fh, gens, posex+(gens->lens[i]-1), &gens->exps);
     }
     else{
-      int b = display_monomial_single(fh, gens, pos+gens->lens[i]-1, &gens->exps);
+      int b = display_monomial_single(fh, gens, posex+gens->lens[i]-1, &gens->exps);
       if(b==0){
         fprintf(fh, "1");
       }
     }
-    pos+=gens->lens[i];
-    fprintf(fh,"\n");
+    pos+=2*gens->lens[i];
+    posex+=gens->lens[i];
+    if(i < gens->ngens-1){
+      fprintf(fh,",\n");
+    }
+    else{
+      fprintf(fh,"\n");
+    }
   }
 }
 
-static inline void display_gens(char *file, data_gens_ff_t *gens){
-  FILE *fh = fopen(file, "w");
+static inline void display_gens(FILE *fh, data_gens_ff_t *gens){
   for(int i = 0; i < gens->nvars-1; i++){
     fprintf(fh, "%s, ", gens->vnames[i]);
   }
@@ -957,5 +1017,109 @@ static inline void display_gens(char *file, data_gens_ff_t *gens){
   else{
     display_gens_mpz(fh, gens);
   }
-  fclose(fh);
+}
+
+static inline void get_poly_bin(FILE *file, mpz_upoly_t pol){
+  if(!fscanf(file, "%d\n", &pol->alloc)){
+    fprintf(stderr, "Issue when reading binary file (alloc = %d)\n", pol->alloc);
+    exit(1);
+  }
+
+  pol->coeffs = malloc(sizeof(mpz_t) * pol->alloc);
+  pol->length = pol->alloc;
+  for(int32_t i = 0; i < pol->length; i++){
+    mpz_init(pol->coeffs[i]);
+    if(!mpz_inp_raw(pol->coeffs[i], file)){
+      fprintf(stderr, "An error occured when reading file (i=%d)\n", i);
+      exit(1);
+    }
+  }
+}
+
+static inline void get_poly(FILE *file, mpz_upoly_t pol){
+  if(!fscanf(file, "%d\n", &pol->alloc)){
+    fprintf(stderr, "Issue when reading binary file (alloc = %d)\n", pol->alloc);
+    exit(1);
+  }
+
+  pol->coeffs = malloc(sizeof(mpz_t) * pol->alloc);
+  pol->length = pol->alloc;
+  for(int32_t i = 0; i < pol->length; i++){
+    mpz_init(pol->coeffs[i]);
+    if(!mpz_inp_str(pol->coeffs[i], file, 10)){
+      fprintf(stderr, "An error occured when reading file (i=%d)\n", i);
+      exit(1);
+    }
+  }
+}
+
+
+static inline void get_single_param_from_file_bin(FILE *file, mpz_param_t param){
+  get_poly_bin(file, param->elim);
+
+  get_poly_bin(file, param->denom);
+  if(!fscanf(file, "%ld\n", &param->nvars)){
+    fprintf(stderr, "Issue when reading binary file (nvars)\n");
+    exit(1);
+  }
+
+  param->nsols = param->elim->length - 1;
+  param->dquot = param->elim->length - 1;
+
+  param->coords = malloc(sizeof(mpz_upoly_t) * param->nvars);
+  for(int32_t i = 0; i < param->nvars; i++){
+    get_poly_bin(file, param->coords[i]);
+  }
+
+}
+
+static inline void get_single_param_from_file(FILE *file, mpz_param_t param){
+  get_poly(file, param->elim);
+
+  get_poly(file, param->denom);
+  if(!fscanf(file, "%ld\n", &param->nvars)){
+    fprintf(stderr, "Issue when reading binary file (nvars)\n");
+    exit(1);
+  }
+
+  param->nsols = param->elim->length - 1;
+  param->dquot = param->elim->length - 1;
+
+  param->coords = malloc(sizeof(mpz_upoly_t) * param->nvars);
+  for(int32_t i = 0; i < param->nvars; i++){
+    get_poly(file, param->coords[i]);
+  }
+
+}
+
+static inline void get_params_from_file_bin(char *fn, mpz_param_array_t lparam){
+  FILE *file = fopen(fn,"r");
+  int32_t nb = 0;
+  if(!fscanf(file, "%d\n", &nb)){
+    fprintf(stderr, "Issue when reading binary file (nb = %d)\n", nb);
+    exit(1);
+  }
+  lparam->nb = nb;
+
+  lparam->params = malloc(sizeof(mpz_param_t) * lparam->nb);
+  for(int32_t i = 0; i < lparam->nb; i++){
+    get_single_param_from_file_bin(file, lparam->params[i]);
+  }
+  fclose(file);
+}
+
+static inline void get_params_from_file(char *fn, mpz_param_array_t lparam){
+  FILE *file = fopen(fn,"r");
+  int32_t nb = 0;
+  if(!fscanf(file, "%d\n", &nb)){
+    fprintf(stderr, "Issue when reading binary file (nb = %d)\n", nb);
+    exit(1);
+  }
+  lparam->nb = nb;
+
+  lparam->params = malloc(sizeof(mpz_param_t) * lparam->nb);
+  for(int32_t i = 0; i < lparam->nb; i++){
+    get_single_param_from_file(file, lparam->params[i]);
+  }
+  fclose(file);
 }

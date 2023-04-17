@@ -21,7 +21,7 @@
 #ifndef MSOLVE_MSOLVE_H
 #define MSOLVE_MSOLVE_H
 
-#include "data.h"
+#include "msolve-data.h"
 
 int msolve_ff_alloc(
         param_t **bparam,
@@ -33,8 +33,10 @@ int msolve_ff_alloc(
         int32_t initial_hts,
         int32_t nr_threads,
         int32_t max_pairs,
+        int32_t elim_block_len,
         int32_t update_ht,
         int32_t la_option,
+        int32_t use_signatures,
         int32_t info_level,
         int32_t print_gb,
         files_gb *files
@@ -46,6 +48,7 @@ int modular_run_msolve(
         int32_t initial_hts,
         int32_t nr_threads,
         int32_t max_pairs,
+        int32_t elim_block_len,
         int32_t update_ht,
         int32_t la_option,
         int32_t info_level,
@@ -62,8 +65,10 @@ int msolve_trace_qq(
         int32_t ht_size,
         int32_t nr_threads,
         int32_t max_nr_pairs,
+        int32_t elim_block_len,
         int32_t reset_ht,
         int32_t la_option,
+        int32_t use_signatures,
         int32_t info_level,
         int32_t print_gb,
         int32_t pbm_file,
@@ -80,8 +85,10 @@ int msolve_probabilistic_qq(
         int32_t ht_size,
         int32_t nr_threads,
         int32_t max_nr_pairs,
+        int32_t elim_block_len,
         int32_t reset_ht,
         int32_t la_option,
+        int32_t use_signatures,
         int32_t info_level,
         int32_t print_gb,
         int32_t pbm_file,
@@ -89,6 +96,7 @@ int msolve_probabilistic_qq(
         int round
         );
 
+#if 0
 int msolve_qq(
         mpz_param_t mp_param,
         param_t **nmod_param,
@@ -98,6 +106,7 @@ int msolve_qq(
         int32_t ht_size,
         int32_t nr_threads,
         int32_t max_nr_pairs,
+        int32_t elim_block_len,
         int32_t reset_ht,
         int32_t la_option,
         int32_t info_level,
@@ -106,6 +115,7 @@ int msolve_qq(
         files_gb *files,
         int
         );
+#endif
 
 int real_msolve_qq(
         mpz_param_t mp_param,
@@ -119,28 +129,35 @@ int real_msolve_qq(
         int32_t ht_size,
         int32_t nr_threads,
         int32_t max_nr_pairs,
+        int32_t elim_block_len,
         int32_t reset_ht,
         int32_t la_option,
+        int32_t use_signatures,
         int32_t info_level,
         int32_t print_gb,
         int32_t pbm_file,
         int32_t precision,
         files_gb *files,
-        int
+        int,
+        int32_t
         );
 
 int core_msolve(
         int32_t la_option,
+        int32_t use_signatures,
         int32_t nr_threads,
         int32_t info_level,
         int32_t initial_hts,
         int32_t max_pairs,
+        int32_t elim_block_len,
         int32_t update_ht,
         int32_t generate_pbm,
         int32_t reduce_gb,
         int32_t print_gb,
         int32_t get_param,
         int32_t genericity_handling,
+        int32_t saturate,
+        int32_t colon,
         int32_t normal_form,
         int32_t normal_form_matrix,
         int32_t is_gb,
@@ -155,11 +172,18 @@ int core_msolve(
         );
 
 void msolve_julia(
+        void *(*mallocp) (size_t),
         int32_t *rp_ld,
+        int32_t *rp_nr_vars,
         int32_t *rp_dim,
         int32_t *rp_dquot,
         int32_t **rp_lens,
+        char ***rp_var_namesp,
+        void **rp_cfs_linear_form,
         void **rp_cfs,
+        int32_t *n_real_sols,
+        void **real_sols_num,
+        int32_t **real_sols_den,
         int32_t *lens,
         int32_t *exps,
         void *cfs,
@@ -167,6 +191,7 @@ void msolve_julia(
         char *output_file,
         const uint32_t field_char,
         const int32_t mon_order,
+        const int32_t elim_block_len,
         const int32_t nr_vars,
         const int32_t nr_gens,
         const int32_t initial_hts,
@@ -174,10 +199,22 @@ void msolve_julia(
         const int32_t max_nr_pairs,
         const int32_t reset_ht,
         const int32_t la_option,
+        const int32_t use_signatures,
         const int32_t print_gb,
-        int32_t get_param,
+        const int32_t get_param,
         const int32_t genericity_handling,
         const int32_t precision,
         const int32_t info_level
+        );
+
+void free_msolve_julia_result_data(
+        void (*freep) (void *),
+        int32_t **res_len,
+        void **res_cf,
+        void **sols_num,
+        int32_t **sols_den,
+        const int64_t res_ld,
+        const int64_t nr_sols,
+        const int64_t field_char
         );
 #endif

@@ -131,10 +131,42 @@ bs_t *f4_trace_learning_phase(
         const int32_t fc          /* characteristic of field */
         );
 
+bs_t *f4sat_trace_learning_phase_1(
+        trace_t *trace,           /* trace of the F4 Algorithm */
+        ht_t * tht,               /* trace hash table for multipliers */
+        const bs_t * const ggb,   /* global basis */
+        const bs_t * const gsat,  /* global saturation elements */
+        ht_t **gbhtp,               /* global basis hash table, generated
+                                   * in this run, used in upcoming runs */
+        stat_t *gst,              /* global statistics */
+        const int32_t fc          /* characteristic of field */
+        );
+
+bs_t *f4sat_trace_learning_phase_2(
+        trace_t *trace,           /* trace of the F4 Algorithm */
+        ht_t * tht,               /* trace hash table for multipliers */
+        const bs_t * const ggb,   /* global basis */
+        const bs_t * const gsat,  /* global saturation elements */
+        ht_t **gbhtp,               /* global basis hash table, generated
+                                   * in this run, used in upcoming runs */
+        stat_t *gst,              /* global statistics */
+        const int32_t fc          /* characteristic of field */
+        );
+
 bs_t *f4_trace_application_phase(
         const trace_t * const trace,  /* trace of the F4 Algorithm */
         const ht_t * const tht,       /* trace hash table for multipliers */
         const bs_t * const ggb,       /* global basis */
+        ht_t *lbht,                   /* local basis hash table, not shared */
+        stat_t *gst,                  /* global statistics */
+        const uint32_t fc             /* characteristic of field */
+        );
+
+bs_t *f4sat_trace_application_phase(
+        const trace_t * const trace,  /* trace of the F4 Algorithm */
+        const ht_t * const tht,       /* trace hash table for multipliers */
+        const bs_t * const ggb,       /* global basis */
+        const bs_t * const gsat,      /* global saturation elements */
         ht_t *lbht,                   /* local basis hash table, not shared */
         stat_t *gst,                  /* global statistics */
         const uint32_t fc             /* characteristic of field */
@@ -150,6 +182,7 @@ int64_t f4_trace_julia(
         const void *cfs,
         const uint32_t field_char,
         const int32_t mon_order,
+        const int32_t elim_block_len,
         const int32_t nr_vars,
         const int32_t nr_gens,
         const int32_t ht_size,

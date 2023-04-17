@@ -55,7 +55,7 @@ static void taylorshift1_naive(mpz_t *upol, const unsigned long int deg){
 static inline void mpz_poly_swap_th(mpz_t *res, mpz_t *pol,
                                     const unsigned long int deg,
                                     const unsigned int nthreads){
-#ifdef HAVE_OPENMP
+#ifdef _OPENMP
   omp_set_num_threads(nthreads);
 #endif
 
@@ -74,7 +74,7 @@ static inline void mpz_poly_add_th(mpz_t *res, mpz_t *upol1,
     return;
   }
   unsigned long int i;
-#ifdef HAVE_OPENMP
+#ifdef _OPENMP
   omp_set_num_threads(nthreads);
 #endif
 #pragma omp parallel for num_threads(nthreads) //schedule(static)
@@ -156,13 +156,13 @@ static void taylorshift1_dac(mpz_t *upol,
   }
 
   unsigned long int fdeg = deg - (nblocks - 1)*sz;
-  unsigned long int cont2 = 0;
 
-#ifdef HAVE_OPENMP
+#ifdef _OPENMP
   omp_set_num_threads(nthreads);
 #endif
-#pragma omp parallel for num_threads(nthreads) //schedule(static)
+#pragma omp parallel for num_threads(nthreads) schedule(dynamic)
   for(unsigned long int i = 0; i <= nblocks - 1; i++){
+    unsigned long int cont2 = 0;
     if(i < nblocks-1){
       cont2 = mpz_poly_remove_binary_content(&upol[i * sz],
                                              sz-1);
@@ -177,6 +177,7 @@ static void taylorshift1_dac(mpz_t *upol,
     }
   }
 
+  unsigned long int cont2 = 0;
   unsigned long int npowers = LOG2(nblocks);
   mpz_t *shifted = NULL;
 
@@ -292,6 +293,7 @@ static long mpz_poly_sgn_variations_coeffs_bsize_with_index(mpz_t* upol,
       }
     }
   }
+  /* int oldnb = nb; */
   N = L + 1;
   int c = mpz_cmp_ui(upol[0],0);
   long int l = ilog2_mpz(upol[0]);
@@ -308,6 +310,13 @@ static long mpz_poly_sgn_variations_coeffs_bsize_with_index(mpz_t* upol,
   return -1;
 }
 
+/* This is called to perform a Taylor shift after truncation
+   of coefficients of pol by maxnbits - 2*(deg + 1).
+
+   Hence the first deg bits of the computed Taylor shifts are correct
+   (actually, the sgn variation count functions use a more accurate
+   estimate)
+*/
 static long taylorshift1_dac_wsgnvar(mpz_t *pol,
                                      const unsigned long int deg,
                                      mpz_t *tmpol,
@@ -336,7 +345,7 @@ static long taylorshift1_dac_wsgnvar(mpz_t *pol,
   long nb;
   taylorshift1_naive(pol+(nblocks-1)*(pwx), fdeg );
 
-#ifdef HAVE_OPENMP
+#ifdef _OPENMP
   omp_set_num_threads(nthreads);
 #endif
 #pragma omp parallel for num_threads(nthreads) //schedule(static)

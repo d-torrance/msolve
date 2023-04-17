@@ -19,13 +19,13 @@
  * Mohab Safey El Din */
 
 #if HAVE_CONFIG_H
-#include "../../config.h"
+#include "config.h"
 #endif
 
 #include<stdio.h>
 #include<stdlib.h>
 #include<gmp.h>
-#ifdef HAVE_OPENMP
+#ifdef _OPENMP
 #include<omp.h>
 #endif
 
@@ -37,7 +37,7 @@
 #include "flint/fmpz_poly.h"
 
 
-#define THRESHOLDSHIFT 256 //512
+#define THRESHOLDSHIFT 256
 #define POWER_HACK 1
 
 #define ilog2(a) mpz_sizeinbase(a,2)
@@ -896,6 +896,7 @@ static long bisection_rec(mpz_t *upol, unsigned long *deg,
 	case 1:
 
     /* one root exactly */
+
     return nb_1_case_in_bisection_rec(c, k, tmp,
                                       roots, nbr,
                                       flags, is_half_root,
@@ -1000,8 +1001,8 @@ static void initialize_heap_flags(usolve_flags *flags,
       mpz_init(flags->tmpol_desc[i]);
     }
 
-    if(flags->nthreads>=1){
-      //used for parallel taylor_shift
+    if(flags->nthreads>=1 && 0==1){
+      /* used for parallel Taylor shift */
       flags->tmp_threads = malloc(sizeof(mpz_t *) * (flags->nthreads + 1));
       flags->pols_threads = malloc(sizeof(mpz_t *) * flags->nthreads);
       mpz_t ** tmp = flags->tmp_threads;
@@ -1048,7 +1049,7 @@ static inline void free_heap_flags(usolve_flags *flags,
     mpz_clear(flags->Values[1]);
     free(flags->Values);
 
-    if(flags->nthreads>1){
+    if(flags->nthreads>=1 &&0==1){
       for(int i = 0; i < flags->nthreads; i++){
 
         for(unsigned long int j = 0; j <= deg; j++){
@@ -1124,7 +1125,7 @@ interval *bisection_Uspensky(mpz_t *upol0, unsigned long deg,
   }
 
   if(zero_root==0){
-    deg = deg0; 
+    deg = deg0;
   }
   else{
     deg = (deg0 - 1);
@@ -1155,6 +1156,7 @@ interval *bisection_Uspensky(mpz_t *upol0, unsigned long deg,
                                              flags->bound_pos, deg,
                                              flags->nthreads);
     initialize_heap_flags(flags, deg);
+
     unsigned olddeg = deg;
     bisection_rec(upol, &deg, e, 0,
                   pos_roots, nb_pos_roots,
@@ -1169,7 +1171,7 @@ interval *bisection_Uspensky(mpz_t *upol0, unsigned long deg,
   /* replaces upol(x) by upol(-x) => negative roots */
 
   if(zero_root == 0){
-    deg = deg0; 
+    deg = deg0;
   }
   else{
     deg = (deg0 - 1);
@@ -1264,11 +1266,16 @@ interval *real_roots(mpz_t *upoly, unsigned long deg,
                      unsigned long int *nb_pos_roots,
                      unsigned long int *nb_neg_roots,
                      const int32_t precision,
+                     int nthrds,
                      int info_level){
   usolve_flags *flags = (usolve_flags*)(malloc(sizeof(usolve_flags)));
   initialize_flags(flags);
   flags->cur_deg = deg;
-  flags->prec_isole = MAX(precision, 3*LOG2(deg));
+  flags->prec_isole = precision;
+  if(info_level){
+    fprintf(stderr, "Real root isolation starts at precision %d\n",
+            precision);
+  }
   if (info_level > 0) {
     flags->verbose = info_level - 1;
   } else {
@@ -1277,6 +1284,7 @@ interval *real_roots(mpz_t *upoly, unsigned long deg,
   if(info_level>1){
     flags->print_stats = 1;
   }
+  flags->nthreads = nthrds;
   if(flags->verbose>=1 || flags->print_stats == 1){
     fprintf(stderr, "Degree = %ld \t Max bit size = %lu Min bit size = %lu \n",
             flags->cur_deg,
@@ -1290,8 +1298,17 @@ interval *real_roots(mpz_t *upoly, unsigned long deg,
                                        flags);
 
   unsigned long int nbroots = *nb_pos_roots + *nb_neg_roots;
+  for(unsigned long int i = 0; i < nbroots; i++){
+    if(roots[i].isexact){
+      if(roots[i].k < 0){
+        roots[i].k = 0;
+      }
+    }
+  }
 
   /* display_roots_system(stderr, roots, nbroots); */
+  /* fprintf(stderr, "First root \n"); */
+  /* display_root(stderr, roots); */
 
   e_time = realtime ( ) - e_time;
 
@@ -1312,11 +1329,19 @@ interval *real_roots(mpz_t *upoly, unsigned long deg,
                              flags->prec_isole, flags->classical_algo, flags->debug);
     }
     else{
-      refine_QIR_roots(upoly, &deg, roots, *nb_neg_roots, *nb_pos_roots,
-                       flags->prec_isole, flags->verbose, step, flags->nthreads);
+      refine_QIR_roots_adaptative(upoly, &deg, roots, *nb_neg_roots, *nb_pos_roots,
+                                  flags->prec_isole, flags->verbose, step, flags->nthreads);
     }
   }
   refine_time = realtime() - refine_time;
+
+  for(unsigned long int i = 0; i < nbroots; i++){
+    if(roots[i].isexact){
+      if(roots[i].k < 0){
+        roots[i].k = 0;
+      }
+    }
+  }
 
   if(flags->print_stats>=1){
     display_stats(flags);
@@ -1327,8 +1352,6 @@ interval *real_roots(mpz_t *upoly, unsigned long deg,
     fprintf(stderr,"Time for refinement (elapsed): %.2f sec\n", refine_time);
   }
 
-  free(flags->tmp_threads);
-  free(flags->pols_threads);
   free(flags);
   return roots;
 }

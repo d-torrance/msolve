@@ -24,7 +24,7 @@
 #include <flint/nmod_poly.h>
 
 
-typedef unsigned int szmat_t;
+typedef uint32_t szmat_t;
 typedef uint32_t CF_t;
 typedef uint64_t CF_l_t;
 typedef uint32_t mod_t;
@@ -62,6 +62,21 @@ typedef struct{
                       //dense_mat)
   szmat_t *dst; //pour la gestion des lignes "denses" mais avec un bloc de zero a la fin
 } sp_matfglm_t;
+
+typedef struct{
+  CF_t charac;
+  szmat_t ncols; //dimension du sev du quotient
+  szmat_t nrows; //nbre de lignes non triviales
+  szmat_t nzero; //nbre de lignes nulles
+  CF_t *dense_mat; // matrice nrows lignes et ncols colonnes (elements donnes par lignes)
+  szmat_t *triv_idx; //tableau d'indices des lignes ne contenant que des 0 et un 1
+  szmat_t *triv_pos; //position des 1
+  szmat_t *dense_idx; //position des lignes non triviales (qui constituent donc
+                      //dense_mat)
+  szmat_t *zero_idx; //tableau d'indices des lignes ne contenant que des 0
+  szmat_t *dst; //pour la gestion des lignes "denses" mais avec un bloc de zero a la fin
+} sp_matfglmcol_t;
+
 
 #ifndef ALIGNED32
 #define ALIGNED32 __attribute__((aligned(32)))
@@ -189,6 +204,37 @@ static inline void display_fglm_matrix(FILE *file, sp_matfglm_t *matrix){
   fprintf(file, "\n");
 }
 
+static inline void display_fglm_colon_matrix(FILE *file, sp_matfglmcol_t *matrix){
+
+  fprintf(file, "%u\n", matrix->charac);
+  fprintf(file, "%u\n", matrix->ncols);
+  fprintf(file, "%u\n", matrix->nrows);
+  fprintf(file, "%u\n", matrix->nzero);
+
+  long len1 = (matrix->ncols)*(matrix->nrows);
+  for(long i = 0; i < len1; i++){
+    fprintf(file, "%d ", matrix->dense_mat[i]);
+  }
+  fprintf(file, "\n");
+  long len2 = (matrix->ncols) - (matrix->nrows);
+  for(long i = 0; i < len2; i++){
+    fprintf(file, "%d ", matrix->triv_idx[i]);
+  }
+  fprintf(file, "\n");
+  for(long i = 0; i < len2; i++){
+    fprintf(file, "%d ", matrix->triv_pos[i]);
+  }
+  fprintf(file, "\n");
+  for(long i = 0; i < matrix->nrows; i++){
+    fprintf(file, "%d ", matrix->dense_idx[i]);
+  }
+  fprintf(file, "\n");
+  for(long i = 0; i < matrix->nzero; i++){
+    fprintf(file, "%d ", matrix->zero_idx[i]);
+  }
+  fprintf(file, "\n");
+}
+
 static inline param_t *allocate_fglm_param(mp_limb_t prime, long nvars){
   param_t *param = malloc(sizeof(param_t));
   if(param==NULL){
@@ -224,6 +270,7 @@ static inline fglm_bms_data_t *allocate_fglm_bms_data(long dim, mp_limb_t prime)
 
   nmod_poly_init(data_bms->B, prime);
   nmod_poly_init(data_bms->Z1, prime);
+
   nmod_poly_init2(data_bms->rZ1, prime, dim+1);
 
   nmod_poly_init(data_bms->Z2, prime);
@@ -231,6 +278,14 @@ static inline fglm_bms_data_t *allocate_fglm_bms_data(long dim, mp_limb_t prime)
   nmod_poly_init2(data_bms->V, prime, dim+1);
 
   nmod_poly_init2(data_bms->param, prime, dim+1);
+
+  for(long i = 0; i < dim + 1; i++){
+    data_bms->rZ1->coeffs[i] = 0;
+    data_bms->rZ2->coeffs[i] = 0;
+    data_bms->V->coeffs[i] = 0;
+    data_bms->param->coeffs[i] = 0;
+  }
+
   nmod_berlekamp_massey_init(data_bms->BMS, (mp_limb_t)prime);
 
   nmod_poly_factor_init(data_bms->sqf);

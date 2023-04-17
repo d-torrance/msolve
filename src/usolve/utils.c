@@ -36,7 +36,8 @@
 #define USOLVE
 #endif
 
-unsigned long int mpz_poly_max_bsize_coeffs(mpz_t *upol, unsigned long int deg){
+unsigned long int mpz_poly_max_bsize_coeffs(mpz_t *upol, long int deg){
+  if(deg<0) return -1;
   unsigned long int max = 0, bs;
   for(int i=0 ; i<=deg; i++){
     bs = ilog2_mpz(upol[i]);
@@ -157,7 +158,7 @@ static inline int USOLVEmpz_poly_rescale_normalize_2exp_th(mpz_t *upol, long int
   long int i;
   if (b > 0) {
     //    j = b;
-#ifdef HAVE_OPENMP
+#ifdef _OPENMP
     omp_set_num_threads(nthreads);
 #endif
 #pragma omp parallel for num_threads(nthreads)
@@ -166,7 +167,7 @@ static inline int USOLVEmpz_poly_rescale_normalize_2exp_th(mpz_t *upol, long int
     }
   }
   else{
-#ifdef HAVE_OPENMP
+#ifdef _OPENMP
     omp_set_num_threads(nthreads);
 #endif
 #pragma omp parallel for num_threads(nthreads)
@@ -190,7 +191,7 @@ static inline int USOLVEmpz_poly_rescale_normalize_2exp_th_long(mpz_t *upol,
   long int i;
   mpz_t coef;mpz_init(coef);mpz_set_si(coef, c);
   if (b > 0) {
-#ifdef HAVE_OPENMP
+#ifdef _OPENMP
     omp_set_num_threads(nthreads);
 #endif
 #pragma omp parallel for num_threads(nthreads)
@@ -201,7 +202,7 @@ static inline int USOLVEmpz_poly_rescale_normalize_2exp_th_long(mpz_t *upol,
     }
   }
   else{
-#ifdef HAVE_OPENMP
+#ifdef _OPENMP
     omp_set_num_threads(nthreads);
 #endif
 #pragma omp parallel for num_threads(nthreads)
@@ -216,8 +217,8 @@ static inline int USOLVEmpz_poly_rescale_normalize_2exp_th_long(mpz_t *upol,
 }
 
 unsigned long int mpz_poly_min_bsize_coeffs(mpz_t *upol,
-                                            unsigned long int deg){
-
+                                            long int deg){
+  if(deg < 0) return 1;
   unsigned long int min = ilog2_mpz(upol[deg]), bs;
   for(long i = deg ; i >= 0; i--){
     bs = ilog2_mpz(upol[i]);
@@ -230,9 +231,12 @@ unsigned long int mpz_poly_min_bsize_coeffs(mpz_t *upol,
 
 
 /* One assumes up(0) != 0 */
-/* as soon as more that 3 sign variations are found, the computation is stopped */
+/* as soon as more that 3 sign variations are found,
+   the computation is stopped */
 /* takes into accound the loss of precison */
-static long USOLVEmpz_poly_sgn_variations_coeffs_bsize(mpz_t* upol, unsigned long deg, unsigned long int bsize){
+static long USOLVEmpz_poly_sgn_variations_coeffs_bsize(mpz_t* upol,
+                                                       unsigned long deg,
+                                                       unsigned long int bsize){
   unsigned long int i;
   long nb = 0;
   int s = mpz_sgn(upol[deg]);

@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([msolve], [0.1.2], [ederc@mathematik.uni-kl.de])
+AC_INIT([msolve], [0.4.9], [ederc@mathematik.uni-kl.de])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign silent-rules subdir-objects color-tests parallel-tests])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_MACRO_DIR([m4])
@@ -13,12 +13,7 @@ AM_PROG_AR
 LT_INIT
 
 # Checks for programs.
-AC_PROG_AWK
 AC_PROG_CC
-AC_PROG_INSTALL
-AC_PROG_LN_S
-AC_PROG_MAKE_SET
-AC_PROG_RANLIB
 
 # Checks for libraries.
 # CAUTION: Order matters for static binary building.
@@ -39,12 +34,6 @@ AC_ARG_ENABLE([openmp],
 
 if test x$openmp = xtrue ; then
 		AC_OPENMP
-		AX_OPENMP([
-				HAVE_OPENMP=yes
-				AC_DEFINE(HAVE_OPENMP, 1, [Enable OpenMP support])
-		],[
-				HAVE_OPENMP=no
-		])
 fi
 
 # Checks for header files.
@@ -65,7 +54,9 @@ AC_TYPE_UINT8_T
 
 AX_COUNT_CPUS
 AX_EXT
-AX_GCC_BUILTIN
+AX_GCC_BUILTIN([__builtin_constant_p])
+AX_GCC_BUILTIN([__builtin_clzll])
+AX_GCC_BUILTIN([__builtin_clzl])
 
 # Checks for library functions.
 AC_FUNC_MALLOC

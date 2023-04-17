@@ -32,6 +32,12 @@
 /* The idea of the structure of the hash table is taken from an
  * implementation by Roman Pearce and Michael Monagan in Maple. */
 
+void reset_hash_table_indices(
+        ht_t *ht,
+        const hi_t * const hcm,
+        const len_t len
+        );
+
 ht_t *initialize_basis_hash_table(
     stat_t *st
     );
@@ -40,6 +46,11 @@ ht_t *copy_hash_table(
     const ht_t *bht,
     const stat_t *st
     );
+
+ht_t *full_copy_hash_table(
+                      const ht_t *bht,
+                      const stat_t *st
+                      );
 
 ht_t *initialize_secondary_hash_table(
     const ht_t *bht,
@@ -53,6 +64,10 @@ void free_shared_hash_data(
 void free_hash_table(
     ht_t **htp
     );
+
+void full_free_hash_table(
+                     ht_t **htp
+                     );
 
 void calculate_divmask(
     ht_t *ht

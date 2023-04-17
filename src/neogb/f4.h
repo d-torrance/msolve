@@ -24,7 +24,8 @@
 
 #include "data.h"
 
-void free_julia_data(
+void free_f4_julia_result_data(
+        void (*freep) (void *),
         int32_t **blen, /* length of each poly in basis */
         int32_t **bexp, /* basis exponent vectors */
         void **bcf,      /* coefficients of basis elements */
@@ -32,29 +33,8 @@ void free_julia_data(
         const int64_t field_char
         );
 
-int initialize_f4_input_data(
-        bs_t **bsp,
-        ht_t **bhtp,
-        stat_t **stp,
-        /* input values */
-        const int32_t *lens,
-        const int32_t *exps,
-        const void *cfs,
-        const uint32_t field_char,
-        const int32_t mon_order,
-        const int32_t nr_vars,
-        const int32_t nr_gens,
-        const int32_t ht_size,
-        const int32_t nr_threads,
-        const int32_t max_nr_pairs,
-        const int32_t reset_ht,
-        const int32_t la_option,
-        const int32_t reduce_gb,
-        const int32_t pbm_file,
-        const int32_t info_level
-        );
-
 int64_t f4_julia(
+        void *(*mallocp) (size_t),
         int32_t *bld,   /* basis load */
         int32_t **blen, /* length of each poly in basis */
         int32_t **bexp, /* basis exponent vectors */
@@ -64,6 +44,7 @@ int64_t f4_julia(
         const void *cfs,
         const uint32_t field_char,
         const int32_t mon_order,
+        const int32_t elim_block_len,
         const int32_t nr_vars,
         const int32_t nr_gens,
         const int32_t ht_size,
@@ -82,6 +63,7 @@ int64_t export_results_from_f4(
     int32_t **blen, /* length of each poly in basis */
     int32_t **bexp, /* basis exponent vectors */
     void **bcf,     /* coefficients of basis elements */
+    void *(*mallocp) (size_t),
     bs_t **bsp,
     ht_t **bhtp,
     stat_t **stp

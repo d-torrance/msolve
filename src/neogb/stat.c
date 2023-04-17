@@ -43,7 +43,7 @@ static stat_t *copy_statistics(
             }
         }
     }
-
+    set_ff_bits(st, st->fc);
     return st;
 }
 
@@ -65,12 +65,17 @@ void print_initial_statistics(
     fprintf(file, "\n--------------- INPUT DATA ---------------\n");
     fprintf(file, "#variables             %11d\n", st->nvars);
     fprintf(file, "#equations             %11d\n", st->ngens);
+    fprintf(file, "#invalid equations     %11d\n", st->ngens_invalid);
     fprintf(file, "field characteristic   %11u\n", st->fc);
     fprintf(file, "homogeneous input?     %11d\n", st->homogeneous);
-    if (st->mo == 0) {
+    fprintf(file, "signature-based computation %6d\n", st->use_signatures);
+    if (st->mo == 0 && st->nev == 0) {
         fprintf(file, "monomial order                 DRL\n");
     }
-    if (st->mo == 1) {
+    if (st->mo == 0 && st->nev > 0) {
+        fprintf(file, "monomial order             ELIM(%d)\n", st->nev);
+    }
+    if (st->mo == 1 && st->nev == 0) {
         fprintf(file, "monomial order                 LEX\n");
     }
     if ((st->mo != 0) && (st->mo != 1)) {

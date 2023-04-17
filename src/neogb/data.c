@@ -22,20 +22,12 @@
 #include "data.h"
 
 /* function pointers */
-bs_t *(*initialize_basis)(
-        const int32_t ngens
-        );
-void (*check_enlarge_basis)(
-        bs_t *bs,
-        const len_t added
-        );
+/* bs_t *(*initialize_basis)(
+ *         const int32_t ngens
+ *         ); */
 void (*normalize_initial_basis)(
         bs_t *bs,
         const uint32_t fc
-        );
-bs_t *(*copy_basis_mod_p)(
-        const bs_t * const gbs,
-        const stat_t * const st
         );
 
 int (*initial_input_cmp)(
@@ -68,26 +60,24 @@ int (*hcm_cmp)(
         void *htp
         );
 
-void (*import_julia_data)(
-        bs_t *bs,
-        ht_t *ht,
-        stat_t *st,
-        const int32_t *lens,
-        const int32_t *exps,
-        const void *vcfs
-        );
-
 int64_t (*export_julia_data)(
         int32_t *bload,
         int32_t **blen,
         int32_t **bexp,
         void **bcf,
+        void *(*mallocp) (size_t),
         const bs_t * const bs,
         const ht_t * const ht,
         const uint32_t fc
         );
 
 /* linear algebra routines */
+void (*sba_linear_algebra)(
+        smat_t *smat,
+        crit_t *syz,
+        stat_t *st,
+        const ht_t * const ht
+        );
 void (*linear_algebra)(
         mat_t *mat,
         const bs_t * const bs,
@@ -110,7 +100,8 @@ void (*trace_linear_algebra)(
 void (* interreduce_matrix_rows)(
         mat_t *mat,
         bs_t *bs,
-        stat_t *st
+        stat_t *st,
+        int free_basis
         );
 
 cf32_t *(*reduce_dense_row_by_old_pivots_ff_32)(
@@ -120,6 +111,17 @@ cf32_t *(*reduce_dense_row_by_old_pivots_ff_32)(
         hm_t * const * const pivs,
         const hi_t dpiv,
         const uint32_t fc
+        );
+
+hm_t *(*sba_reduce_dense_row_by_known_pivots_sparse_ff_32)(
+        int64_t *dr,
+        smat_t *smat,
+        hm_t *const *pivs,
+        const hi_t dpiv,    /* pivot of dense row at the beginning */
+        const hm_t sm,      /* signature monomial of row reduced */
+        const len_t si,     /* signature index of row reduced */
+        const len_t ri,     /* index of row in matrix */
+        stat_t *st
         );
 
 hm_t *(*reduce_dense_row_by_known_pivots_sparse_ff_32)(

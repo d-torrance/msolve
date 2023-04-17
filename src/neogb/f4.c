@@ -21,7 +21,11 @@
 
 #include "f4.h"
 
-void free_julia_data(
+/* The parameters themselves are handled by julia, thus we only
+ * free what they are pointing to, julia's garbage collector then
+ * takes care of everything leftover. */
+void free_f4_julia_result_data(
+        void (*freep) (void *),
         int32_t **blen, /* length of each poly in basis */
         int32_t **bexp, /* basis exponent vectors */
         void **bcf,      /* coefficients of basis elements */
@@ -29,43 +33,41 @@ void free_julia_data(
         const int64_t field_char
         )
 {
-    int64_t i;
-    int64_t len = 0;
-
     /* lengths resp. nterms */
     int32_t *lens  = *blen;
-    for (i = 0; i < ngens; ++i) {
-        len += (int64_t)lens[i];
-    }
 
-    free(lens);
-    lens = NULL;
+    /* int64_t i;
+     * int64_t len = 0;
+     * for (i = 0; i < ngens; ++i) {
+     *     len += (int64_t)lens[i];
+     * } */
+
+    (*freep)(lens);
+    lens  = NULL;
     *blen = lens;
 
     /* exponent vectors */
     int32_t *exps = *bexp;
-    free(exps);
+    (*freep)(exps);
     exps  = NULL;
     *bexp = exps;
-    bexp  = NULL;
 
     /* coefficients */
     if (field_char == 0) {
-        mpz_t **cfs = (mpz_t **)bcf;
-        for (i = 0; i < len; ++i) {
-            mpz_clear((*cfs)[i]);
-        }
-        free(*cfs);
-        free(cfs);
-        cfs = NULL;
+        /* mpz_t **cfs = (mpz_t **)bcf;
+         * for (i = 0; i < len; ++i) {
+         *     mpz_clear((*cfs)[i]);
+         * }
+         * (*freep)(*cfs);
+         * *cfs  = NULL; */
     } else {
         if (field_char > 0) {
             int32_t *cfs  = *((int32_t **)bcf);
-            free(cfs);
+            (*freep)(cfs);
             cfs = NULL;
         }
     }
-    bcf = NULL;
+    *bcf  = NULL;
 }
 
 static void clear_matrix(
@@ -94,6 +96,124 @@ static void clear_matrix(
     mat->cf_ab_qq  = NULL;
 }
 
+#if 0
+static void intermediate_reduce_basis(
+        bs_t *bs,
+        mat_t *mat,
+        hi_t **hcmp,
+        ht_t **bhtp,
+        ht_t **shtp,
+        stat_t *st
+        )
+{
+    printf("bs->ld %u\n", bs->ld);
+    /* timings */
+    double ct0, ct1, rt0, rt1;
+    ct0 = cputime();
+    rt0 = realtime();
+
+    len_t i, j;
+
+    ht_t *bht   = *bhtp;
+    ht_t *sht   = *shtp;
+    hi_t *hcm   = *hcmp;
+    exp_t *etmp = bht->ev[0];
+    memset(etmp, 0, (unsigned long)(bht->evl) * sizeof(exp_t));
+
+    mat->rr = (hm_t **)malloc((unsigned long)bs->lml * 2 * sizeof(hm_t *));
+    mat->nr = 0;
+    mat->sz = 2 * bs->lml;
+
+    /* add all non-redundant basis elements as matrix rows */
+    for (i = 0; i < bs->lml; ++i) {
+        mat->rr[mat->nr] = multiplied_poly_to_matrix_row(
+                sht, bht, 0, etmp, bs->hm[bs->lmps[i]]);
+        sht->hd[mat->rr[mat->nr][OFFSET]].idx  = 1;
+        mat->nr++;
+    }
+    mat->nc = mat->nr; /* needed for correct counting in symbol */
+    symbolic_preprocessing(mat, bs, st, sht, NULL, bht);
+    /* no known pivots, we need mat->ncl = 0, so set all indices to 1 */
+    for (i = 0; i < sht->eld; ++i) {
+        sht->hd[i].idx = 1;
+    }
+
+    /* generate hash <-> column mapping */
+    if (st->info_level > 1) {
+        printf("reduce intermediate basis ");
+        fflush(stdout);
+    }
+    convert_hashes_to_columns(&hcm, mat, st, sht);
+    mat->nc = mat->ncl + mat->ncr;
+    /* sort rows */
+    sort_matrix_rows_decreasing(mat->rr, mat->nru);
+    /* do the linear algebra reduction, do NOT free basis data */
+    interreduce_matrix_rows(mat, bs, st, 0);
+    /* remap rows to basis elements (keeping their position in bs) */
+    convert_sparse_matrix_rows_to_basis_elements(mat, bs, bht, sht, hcm, st);
+
+    clear_matrix(mat);
+    clean_hash_table(sht);
+
+    /* printf("bs->lml %u | bs->ld %u | mat->np %u\n", bs->lml, bs->ld, mat->np); */
+    /* we may have added some multiples of reduced basis polynomials
+     * from the matrix, so we get rid of them. */
+    i = 0;
+    for (i = 0; i < bs->ld; ++i) {
+        for (j = 0; j < mat->np; ++j) {
+            if (bs->hm[i][OFFSET] == bs->hm[bs->ld+j][OFFSET]) {
+                free(bs->hm[i]);
+                bs->hm[i] = bs->hm[bs->ld+j];
+                bs->hm[i][COEFFS] = i;
+                switch(st->ff_bits) {
+                    case 8:
+                        free(bs->cf_8[i]);
+                        bs->cf_8[i] = bs->cf_8[bs->ld+j];
+                        break;
+                    case 16:
+                        free(bs->cf_16[i]);
+                        bs->cf_16[i] = bs->cf_16[bs->ld+j];
+                        break;
+                    case 32:
+                        free(bs->cf_32[i]);
+                        bs->cf_32[i] = bs->cf_32[bs->ld+j];
+                        break;
+                }
+            }
+        }
+    }
+    for (i = bs->ld; i < bs->ld+mat->np; ++i) {
+        bs->hm[i] = NULL;
+        switch(st->ff_bits) {
+            case 8:
+                bs->cf_8[i] = NULL;
+                break;
+            case 16:
+                bs->cf_16[i] = NULL;
+                break;
+            case 32:
+                bs->cf_32[i] = NULL;
+                break;
+        }
+    }
+    *hcmp = hcm;
+
+    /* timings */
+    ct1 = cputime();
+    rt1 = realtime();
+    st->reduce_gb_ctime = ct1 - ct0;
+    st->reduce_gb_rtime = rt1 - rt0;
+    if (st->info_level > 1) {
+        printf("%13.2f sec\n", rt1-rt0);
+    }
+
+    if (st->info_level > 1) {
+        printf("-------------------------------------------------\
+----------------------------------------\n");
+    }
+}
+#endif
+
 static void reduce_basis(
         bs_t *bs,
         mat_t *mat,
@@ -114,7 +234,7 @@ static void reduce_basis(
     ht_t *sht   = *shtp;
     hi_t *hcm   = *hcmp;
     exp_t *etmp = bht->ev[0];
-    memset(etmp, 0, (unsigned long)bht->nv * sizeof(exp_t));
+    memset(etmp, 0, (unsigned long)(bht->evl) * sizeof(exp_t));
 
     mat->rr = (hm_t **)malloc((unsigned long)bs->lml * 2 * sizeof(hm_t *));
     mat->nr = 0;
@@ -123,7 +243,7 @@ static void reduce_basis(
     /* add all non-redundant basis elements as matrix rows */
     for (i = 0; i < bs->lml; ++i) {
         mat->rr[mat->nr] = multiplied_poly_to_matrix_row(
-                sht, bht, 0, 0, etmp, bs->hm[bs->lmps[i]]);
+                sht, bht, 0, etmp, bs->hm[bs->lmps[i]]);
         sht->hd[mat->rr[mat->nr][OFFSET]].idx  = 1;
         mat->nr++;
     }
@@ -146,10 +266,10 @@ static void reduce_basis(
     mat->nc = mat->ncl + mat->ncr;
     /* sort rows */
     sort_matrix_rows_decreasing(mat->rr, mat->nru);
-    /* do the linear algebra reduction */
-    interreduce_matrix_rows(mat, bs, st);
+    /* do the linear algebra reduction and free basis data afterwards */
+    interreduce_matrix_rows(mat, bs, st, 1);
     /* remap rows to basis elements (keeping their position in bs) */
-    convert_sparse_matrix_rows_to_basis_elements_use_sht(mat, bs, hcm, st);
+    convert_sparse_matrix_rows_to_basis_elements_use_sht(1, mat, bs, sht, hcm, st);
 
     /* bht becomes sht, so we do not have to convert the hash entries */
     bht   = sht;
@@ -182,6 +302,8 @@ start:
         bs->lmps[k] = bs->ld-1-i;
         bs->lm[k++] = bht->hd[bs->hm[bs->ld-1-i][OFFSET]].sdm;
     }
+    bs->lml = k;
+
     *hcmp = hcm;
 
     /* timings */
@@ -199,77 +321,6 @@ start:
     }
 }
 
-int initialize_f4_input_data(
-        bs_t **bsp,
-        ht_t **bhtp,
-        stat_t **stp,
-        /* input values */
-        const int32_t *lens,
-        const int32_t *exps,
-        const void *cfs,
-        const uint32_t field_char,
-        const int32_t mon_order,
-        const int32_t nr_vars,
-        const int32_t nr_gens,
-        const int32_t ht_size,
-        const int32_t nr_threads,
-        const int32_t max_nr_pairs,
-        const int32_t reset_ht,
-        const int32_t la_option,
-        const int32_t reduce_gb,
-        const int32_t pbm_file,
-        const int32_t info_level
-        )
-{
-    bs_t *bs    = *bsp;
-    ht_t *bht   = *bhtp;
-    stat_t *st  = *stp;
-
-    /* initialize stuff */
-    st  = initialize_statistics();
-
-    /* checks and set all meta data. if a nonzero value is returned then
-     * some of the input data is corrupted. */
-    if (check_and_set_meta_data(st, lens, exps, cfs, field_char, mon_order,
-                nr_vars, nr_gens, ht_size, nr_threads, max_nr_pairs,
-                reset_ht, la_option, reduce_gb, pbm_file, info_level)) {
-        return 0;
-    }
-
-    /* initialize basis */
-    bs  = initialize_basis(st->ngens);
-    /* initialize basis hash table */
-    bht = initialize_basis_hash_table(st);
-
-    import_julia_data(bs, bht, st, lens, exps, cfs);
-
-    if (st->info_level > 0) {
-      print_initial_statistics(stderr, st);
-    }
-
-    /* for faster divisibility checks, needs to be done after we have
-     * read some input data for applying heuristics */
-    calculate_divmask(bht);
-
-    /* sort initial elements, smallest lead term first */
-    sort_r(bs->hm, (unsigned long)bs->ld, sizeof(hm_t *),
-            initial_input_cmp, bht);
-    /* normalize input generators */
-    if (st->fc > 0) {
-        normalize_initial_basis(bs, st->fc);
-    } else {
-        if (st->fc == 0) {
-            remove_content_of_initial_basis(bs);
-        }
-    }
-
-    *bsp  = bs;
-    *bhtp = bht;
-    *stp  = st;
-
-    return 1;
-}
-
 int core_f4(
         bs_t **bsp,
         ht_t **bhtp,
@@ -284,7 +335,6 @@ int core_f4(
     double rrt0, rrt1;
 
     /* initialize update hash table, symbolic hash table */
-    ht_t *uht = initialize_secondary_hash_table(bht, st);
     ht_t *sht = initialize_secondary_hash_table(bht, st);
 
     /* hashes-to-columns map, initialized with length 1, is reallocated
@@ -304,7 +354,7 @@ int core_f4(
     /* move input generators to basis and generate first spairs.
      * always check redundancy since input generators may be redundant
      * even so they are homogeneous. */
-    update_basis(ps, bs, bht, uht, st, st->ngens, 1);
+    update_basis_f4(ps, bs, bht, st, st->ngens, 1);
 
     /* let's start the f4 rounds,  we are done when no more spairs
      * are left in the pairset */
@@ -339,7 +389,7 @@ int core_f4(
       /* columns indices are mapped back to exponent hashes */
       if (mat->np > 0) {
         convert_sparse_matrix_rows_to_basis_elements(
-            mat, bs, bht, sht, hcm, st);
+            -1, mat, bs, bht, sht, hcm, st);
       }
       clean_hash_table(sht);
       /* all rows in mat are now polynomials in the basis,
@@ -347,7 +397,7 @@ int core_f4(
       clear_matrix(mat);
 
       /* check redundancy only if input is not homogeneous */
-      update_basis(ps, bs, bht, uht, st, mat->np, 1-st->homogeneous);
+      update_basis_f4(ps, bs, bht, st, mat->np, 1-st->homogeneous);
 
       /* if we found a constant we are done, so remove all remaining pairs */
       if (bs->constant  == 1) {
@@ -363,6 +413,14 @@ int core_f4(
 ----------------------------------------\n");
     }
     /* remove possible redudant elements */
+    for (i = 0; i < bs->lml; ++i) {
+        for (j = i+1; j < bs->lml; ++j) {
+            if (bs->red[bs->lmps[j]] == 0 && check_monomial_division(bs->hm[bs->lmps[i]][OFFSET], bs->hm[bs->lmps[j]][OFFSET], bht)) {
+                bs->red[bs->lmps[i]]  =   1;
+                break;
+            }
+        }
+    }
     j = 0;
     for (i = 0; i < bs->lml; ++i) {
         if (bs->red[bs->lmps[i]] == 0) {
@@ -372,6 +430,22 @@ int core_f4(
         }
     }
     bs->lml = j;
+
+    /* At the moment we do not directly remove the eliminated polynomials from
+     * the resulting basis. */
+#if 0
+    if (st->nev > 0) {
+        j = 0;
+        for (i = 0; i < bs->lml; ++i) {
+            if (bht->ev[bs->hm[bs->lmps[i]][OFFSET]][0] == 0) {
+                bs->lm[j]   = bs->lm[i];
+                bs->lmps[j] = bs->lmps[i];
+                ++j;
+            }
+        }
+        bs->lml = j;
+    }
+#endif
 
     /* reduce final basis? */
     if (st->reduce_gb == 1) {
@@ -393,9 +467,6 @@ int core_f4(
     if (sht != NULL) {
         free_hash_table(&sht);
     }
-    if (uht != NULL) {
-        free_hash_table(&uht);
-    }
     if (ps != NULL) {
         free_pairset(&ps);
     }
@@ -409,6 +480,7 @@ int64_t export_results_from_f4(
     int32_t **blen, /* length of each poly in basis */
     int32_t **bexp, /* basis exponent vectors */
     void **bcf,     /* coefficients of basis elements */
+    void *(*mallocp) (size_t),
     bs_t **bsp,
     ht_t **bhtp,
     stat_t **stp
@@ -420,7 +492,7 @@ int64_t export_results_from_f4(
     stat_t *st  = *stp;
 
     st->nterms_basis  = export_julia_data(
-        bld, blen, bexp, bcf, bs, bht, st->fc);
+        bld, blen, bexp, bcf, mallocp, bs, bht, st->fc);
     st->size_basis    = *bld;
 
     return st->nterms_basis;
@@ -436,6 +508,7 @@ int64_t export_results_from_f4(
  *
  *  RETURNs the length of the jl_basis array */
 int64_t f4_julia(
+        void *(*mallocp) (size_t),
         /* return values */
         int32_t *bld,   /* basis load */
         int32_t **blen, /* length of each poly in basis */
@@ -447,6 +520,7 @@ int64_t f4_julia(
         const void *cfs,
         const uint32_t field_char,
         const int32_t mon_order,
+        const int32_t elim_block_len,
         const int32_t nr_vars,
         const int32_t nr_gens,
         const int32_t ht_size,
@@ -471,12 +545,19 @@ int64_t f4_julia(
 
     int success = 0;
 
-    success = initialize_f4_input_data(&bs, &bht, &st,
-            lens, exps, cfs, field_char, mon_order, nr_vars,
-            nr_gens, ht_size, nr_threads, max_nr_pairs,
-            reset_ht, la_option, reduce_gb, pbm_file, info_level);
+    const int32_t use_signatures    =   0;
+    success = initialize_gba_input_data(&bs, &bht, &st,
+            lens, exps, cfs, field_char, mon_order, elim_block_len,
+            nr_vars, nr_gens, 0 /* # normal forms */, ht_size,
+            nr_threads, max_nr_pairs, reset_ht, la_option, use_signatures,
+            reduce_gb, pbm_file, info_level);
 
-    if (!success) {
+    /* all input generators are invalid */
+    if (success == -1) {
+        return_zero(bld, blen, bexp, bcf, nr_vars, field_char, mallocp);
+        return 1;
+    }
+    if (success == 0) {
         printf("Bad input data, stopped computation.\n");
         exit(1);
     }
@@ -489,7 +570,7 @@ int64_t f4_julia(
     }
 
     int64_t nterms  = export_results_from_f4(bld, blen, bexp,
-            bcf, &bs, &bht, &st);
+            bcf, mallocp, &bs, &bht, &st);
 
     /* timings */
     ct1 = cputime();
