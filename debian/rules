@@ -4,3 +4,9 @@ export DEB_BUILD_MAINT_OPTIONS=hardening=+all
 
 %:
 	dh $@
+
+# shared libraries are private, so we remove the files that are usually
+# included in a -dev package
+execute_after_dh_auto_install:
+	cd debian/msolve/usr/lib/${DEB_HOST_MULTIARCH} && \
+		rm -f *.la *.a libmsolve.so libneogb.so
