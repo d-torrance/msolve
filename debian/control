@@ -13,18 +13,15 @@ Rules-Requires-Root: no
 Package: msolve
 Architecture: any
 Depends: ${misc:Depends}, ${shlibs:Depends}
-Description: library for solving multivariate polynomial systems.
- msolve is a C library for solving multivariate polynomial systems of
- equations. It relies on computer algebra, a.k.a. symbolic computation,
- algorithms to compute algebraic representations of the solution set
- from which many, if not all, informations can be extracted.  Solving
- polynomial systems with msolve is global by contrast to local
- numerical routines.  The use of computer algebra methods allow also
- the user to bypass classical numerical issues encountered by numerical
- methods for polynomial system solving.  msolve relies mainly on
- Gröbner bases algorithms (see below for a some basic definitions and
- properties). It is highly optimized, uses AVX2 vectorization
- instructions and multi-threading.
+Description: computer algebra algorithms for solving polynomial systems
+ msolve is an open source C library implementing computer algebra
+ algorithms for solving polynomial systems (with rational coefficients
+ or coefficients in a prime field).
  .
- It uses the GMP library (handling multi-precision integers) and the
- FLINT library (handling arithmetics of univariate polynomials).
+ Currently, with msolve, you can basically solve multivariate
+ polynomial systems. This encompasses:
+ .
+ * the computation of Groebner bases
+ * real root isolation of the solutions to polynomial systems
+ * the computation of the dimension and the degree of the solution set
+ * and many other things you can do using msolve.
