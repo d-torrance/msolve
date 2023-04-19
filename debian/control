@@ -7,7 +7,7 @@ Build-Depends: debhelper-compat (= 13), libgmp-dev,libmpfr-dev, libflint-dev
 Standards-Version: 4.6.2
 Homepage: https://msolve.lip6.fr/
 Vcs-Browser: https://salsa.debian.org/math-team/msolve
-Vcs-Git: https://salsa.debian.org/math-team/msolve
+Vcs-Git: https://salsa.debian.org/math-team/msolve.git
 Rules-Requires-Root: no
 
 Package: msolve
