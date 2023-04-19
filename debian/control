@@ -25,7 +25,7 @@ Description: computer algebra algorithms for solving polynomial systems
  Currently, with msolve, you can basically solve multivariate
  polynomial systems. This encompasses:
  .
- * the computation of Groebner bases
- * real root isolation of the solutions to polynomial systems
- * the computation of the dimension and the degree of the solution set
- * and many other things you can do using msolve.
+  * the computation of Groebner bases
+  * real root isolation of the solutions to polynomial systems
+  * the computation of the dimension and the degree of the solution set
+  * and many other things you can do using msolve.
