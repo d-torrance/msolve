@@ -1,12 +1,17 @@
 #!/usr/bin/make -f
 
 export DEB_BUILD_MAINT_OPTIONS=hardening=+all
+LIBPATH = "$$LD_LIBRARY_PATH:debian/msolve/usr/lib/$(DEB_HOST_MULTIARCH)"
 
 %:
 	dh $@
 
+execute_after_dh_auto_install:
 # shared libraries are private, so we remove the files that are usually
 # included in a -dev package
-execute_after_dh_auto_install:
-	cd debian/msolve/usr/lib/${DEB_HOST_MULTIARCH} && \
+	cd debian/msolve/usr/lib/$(DEB_HOST_MULTIARCH) && \
 		rm -f *.la *.a libmsolve.so libneogb.so
+# generate manpage
+	LD_LIBRARY_PATH=$(LIBPATH) help2man -N -n \
+		"computer algebra algorithms for solving polynomial systems" \
+		debian/msolve/usr/bin/msolve > msolve.1
