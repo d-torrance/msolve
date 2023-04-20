@@ -1,1 +1,10 @@
+doc/msolve-tutorial.aux
+doc/msolve-tutorial.bbl
+doc/msolve-tutorial.bcf
+doc/msolve-tutorial.blg
+doc/msolve-tutorial.log
+doc/msolve-tutorial.out
+doc/msolve-tutorial.pdf
+doc/msolve-tutorial.run.xml
+doc/msolve-tutorial.toc
 msolve.1

@@ -6,6 +6,13 @@ LIBPATH = "$$LD_LIBRARY_PATH:debian/msolve/usr/lib/$(DEB_HOST_MULTIARCH)"
 %:
 	dh $@
 
+
+execute_after_dh_auto_build:
+	cd doc && pdflatex msolve-tutorial && \
+		biber msolve-tutorial      && \
+		pdflatex msolve-tutorial   && \
+		pdflatex msolve-tutorial
+
 execute_after_dh_auto_install:
 # shared libraries are private, so we remove the files that are usually
 # included in a -dev package
