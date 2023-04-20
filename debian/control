@@ -9,7 +9,14 @@ Build-Depends: biber,
                libflint-dev,
                libgmp-dev,
                libmpfr-dev,
-               texlive-latex-base
+               texlive-bibtex-extra,
+               texlive-fonts-extra,
+               texlive-fonts-recommended,
+               texlive-latex-base,
+               texlive-latex-extra,
+               texlive-latex-recommended,
+               texlive-plain-generic,
+               texlive-science
 Standards-Version: 4.6.2
 Homepage: https://msolve.lip6.fr/
 Vcs-Browser: https://salsa.debian.org/math-team/msolve
