@@ -1,3 +1,11 @@
+msolve (0.4.9-2) unstable; urgency=medium
+
+  * Source-only upload for transition to testing (after bookworm release).
+  * debian/gbp.conf
+    - New file; set default branch to debian/latest.
+
+ --
+
 msolve (0.4.9-1) unstable; urgency=medium
 
   * Initial release (Closes: #1034619).
