@@ -4,7 +4,7 @@ msolve (0.4.9-2) unstable; urgency=medium
   * debian/gbp.conf
     - New file; set default branch to debian/latest.
 
- --
+ -- Doug Torrance <dtorrance@debian.org>  Fri, 19 May 2023 14:41:20 -0400
 
 msolve (0.4.9-1) unstable; urgency=medium
 
