@@ -1,1 +1,2 @@
 Test-Command: msolve -f debian/tests/in.ms
+Architecture: !armel !armhf !i386
