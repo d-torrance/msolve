@@ -25,8 +25,12 @@
 #include "lifting-gb.c"
 
 #define LIFTMATRIX 0
-
+#ifndef MAX
 #define MAX(a,b) (((a)>(b))?(a):(b))
+#endif
+#ifndef MIN
+#define MIN(x, y) ((x) > (y) ? (y) : (x))
+#endif
 #define LOG2(X) ((unsigned) (8*sizeof (unsigned long long) - __builtin_clzll((X)) - 1))
 #define ilog2_mpz(a) mpz_sizeinbase(a,2)
 
@@ -293,6 +297,7 @@ static inline data_gens_ff_t *allocate_data_gens(){
   gens->cfs   = NULL;
   gens->mpz_cfs = NULL;
 
+  gens->elim = 0;
   return gens;
 }
 
@@ -1560,15 +1565,15 @@ static inline void set_mpz_param_nmod(mpz_param_t mpz_param, param_t *nmod_param
 
 static inline void crt_lift_mpz_upoly(mpz_upoly_t pol, nmod_poly_t nmod_pol,
                                       mpz_t modulus, int32_t prime,
-                                      mpz_t prod,
+                                      mpz_t prod, mpz_t tmp,
                                       int nthrds){
   long i;
 
-#pragma omp parallel for num_threads(nthrds)    \
-  private(i) schedule(static)
+/* #pragma omp parallel for num_threads(nthrds)    \ */
+/*   private(i) schedule(static) */
   for(i = 0; i < pol->length; i++){
     mpz_CRT_ui(pol->coeffs[i], pol->coeffs[i], modulus,
-               nmod_pol->coeffs[i], prime, prod, 1);
+               nmod_pol->coeffs[i], prime, prod, tmp, 1);
   }
 
 
@@ -1578,15 +1583,15 @@ static inline void crt_lift_mpz_upoly(mpz_upoly_t pol, nmod_poly_t nmod_pol,
 /* assumes that all degrees are the same */
 static inline void crt_lift_mpz_param(mpz_param_t mpz_param, param_t *nmod_param,
                                       mpz_t modulus, mpz_t prod_crt,
-                                      const int32_t prime, const int nthrds){
+                                      const int32_t prime, mpz_t tmp, const int nthrds){
 
   /*assumes prod_crt = modulus * prime */
   crt_lift_mpz_upoly(mpz_param->elim, nmod_param->elim, modulus, prime,
-                     prod_crt, nthrds);
+                     prod_crt, tmp, nthrds);
   for(long i = 0; i < mpz_param->nvars - 1; i++){
 
     crt_lift_mpz_upoly(mpz_param->coords[i], nmod_param->coords[i],
-                       modulus, prime, prod_crt, nthrds);
+                       modulus, prime, prod_crt, tmp, nthrds);
 
   }
 
@@ -1763,6 +1768,7 @@ static inline int rational_reconstruction_mpz_ptr_with_denom(mpz_t *recons,
 /**
 
    la sortie est recons / denominator
+
  **/
 
 static inline int rational_reconstruction_upoly(mpz_upoly_t recons,
@@ -1933,7 +1939,7 @@ static inline int new_rational_reconstruction(mpz_param_t mpz_param,
 
   mpz_mul_ui(prod_crt, *modulus, prime);
   crt_lift_mpz_param(tmp_mpz_param, nmod_param, *modulus, prod_crt,
-                     prime, nthrds);
+                     prime, trace_det->tmp, nthrds);
 
   uint32_t trace_mod = nmod_param->elim->coeffs[trace_det->trace_idx];
   uint32_t det_mod = nmod_param->elim->coeffs[trace_det->det_idx];
@@ -1969,7 +1975,7 @@ static inline int new_rational_reconstruction(mpz_param_t mpz_param,
 
 #if LIFTMATRIX == 1
   if(*matrec < crt_mat->nrows*crt_mat->ncols){
-    crt_lift_mat(crt_mat, mat, *modulus, prod_crt, prime, nthrds);
+    crt_lift_mat(crt_mat, mat, *modulus, prod_crt, prime, trace_det->tmp, nthrds);
   }
 #endif
   mpz_mul_ui(*modulus, *modulus, prime);
@@ -2479,7 +2485,8 @@ static int32_t * modular_trace_learning(sp_matfglm_t **bmatrix,
                                                squvars,
                                                info_level,
                                                bdata_fglm, bdata_bms,
-                                               success);
+                                               success,
+					       st);
         }
         free_basis(&(bs));
         *dim = 0;
@@ -2581,7 +2588,7 @@ static int32_t * modular_probabilistic_first(sp_matfglm_t **bmatrix,
         *bparam = nmod_fglm_compute_trace_data(*bmatrix, fc, bht->nv, *bsz,
                 *nlins_ptr, linvars, lineqs_ptr[0],
                 squvars, info_level,
-                bdata_fglm, bdata_bms, success);
+		bdata_fglm, bdata_bms, success,st);
         *dim = 0;
         *dquot_ori = dquot;
 
@@ -2674,7 +2681,8 @@ for (i = 0; i < st->nprimes; ++i){
                                           bdata_fglm[i],
                                           bdata_bms[i],
                                           nbsols,
-                                          info_level)){
+                                          info_level,
+					  st)){
       bad_primes[i] = 1;
     }
     free_basis(&(bs[i]));
@@ -2778,7 +2786,8 @@ static void modular_trace_application(sp_matfglm_t **bmatrix,
                                             bdata_fglm[i],
                                             bdata_bms[i],
                                             nbsols,
-                                            info_level)){
+                                            info_level,
+					    st)){
         bad_primes[i] = 1;
       }
     }
@@ -3933,7 +3942,6 @@ void lazy_single_real_root_param(mpz_param_t param, mpz_t *polelim,
   }
 
   long b = 16;
-  long newprec = MAX(prec, rt->k);
   long corr = 2*(ns + rt->k);
 
 
@@ -4164,9 +4172,6 @@ void extract_real_roots_param(mpz_param_t param, interval *roots, long nb,
 
   }
 
-  if(info_level){
-    fprintf(stderr, "\n");
-  }
   for(long i = 0; i < nsols; i++){
     mpz_clear(xup[i]);
     mpz_clear(xdo[i]);
@@ -4234,7 +4239,7 @@ static real_point_t *isolate_real_roots_param(mpz_param_t param, long *nb_real_r
     }
 
     extract_real_roots_param(param, roots, nb, pts, precision, maxnbits,
-                     step, info_level);
+                             step, info_level);
     if(info_level){
       fprintf(stderr, "Elapsed time (real root extraction) = %.2f\n",
               realtime() - st);
@@ -4250,9 +4255,9 @@ static real_point_t *isolate_real_roots_param(mpz_param_t param, long *nb_real_r
   return pts;
 }
 
-static void isolate_real_roots_lparam(mpz_param_array_t lparams, long **lnbr_ptr,
-                                      interval ***lreal_roots_ptr, real_point_t ***lreal_pts_ptr,
-                                      int32_t precision, int32_t nr_threads, int32_t info_level){
+void isolate_real_roots_lparam(mpz_param_array_t lparams, long **lnbr_ptr,
+                               interval ***lreal_roots_ptr, real_point_t ***lreal_pts_ptr,
+                               int32_t precision, int32_t nr_threads, int32_t info_level){
   long *lnbr = malloc(sizeof(long) * lparams->nb);
   interval **lreal_roots = malloc(sizeof(interval *) * lparams->nb);
   real_point_t **lreal_pts = malloc(sizeof(real_point_t *) * lparams->nb);
@@ -4304,6 +4309,8 @@ int real_msolve_qq(mpz_param_t mp_param,
     -4 if bad prime
   */
 
+  double ct0 = cputime();
+  double rt0 = realtime();
   int b = msolve_trace_qq(mp_param,
                           nmod_param,
                           dim_ptr,
@@ -4321,8 +4328,8 @@ int real_msolve_qq(mpz_param_t mp_param,
                           pbm_file,
                           files,
                           round);
-
-  real_point_t *pts = NULL;
+  double ct1 = cputime();
+  double rt1 = realtime();
 
   if(get_param>1){
     return b;
@@ -4332,6 +4339,12 @@ int real_msolve_qq(mpz_param_t mp_param,
     return 0;
   }
 
+  if(info_level){
+    fprintf(stderr, "Time for rational param: %13.2f (elapsed) sec / %5.2f sec (cpu)\n\n",
+            rt1 - rt0, ct1 - ct0);
+  }
+
+  real_point_t *pts = NULL;
 
   if(b==0 && *dim_ptr == 0 && *dquot_ptr > 0 && gens->field_char == 0){
 
@@ -4639,10 +4652,15 @@ restart:
                     info_level);
 
             st->fc  = gens->field_char;
+            set_ff_bits(st, st->fc);
             if(info_level){
                 fprintf(stderr,
                         "NOTE: Field characteristic is now corrected to %u\n",
                         st->fc);
+            }
+            if(st->ff_bits < 32){
+              fprintf(stderr, "Error: not implemented yet (prime field of too low characteristic\n");
+              return 1;
             }
             if (!success) {
                 printf("Bad input data, stopped computation.\n");
@@ -4658,8 +4676,9 @@ restart:
             } else {
                 sat = initialize_basis(st);
                 import_input_data_nf_ff_32(
-                        sat, bht, st, gens->ngens-saturate, gens->ngens,
-                        gens->lens, gens->exps, (void *)gens->cfs);
+                                           sat, bht, st, gens->ngens-saturate, gens->ngens,
+                                           gens->lens, gens->exps, (void *)gens->cfs);
+
                 sat->ld = sat->lml  =  saturate;
                 /* normalize_initial_basis(tbr, st->fc); */
                 for (int k = 0; k < saturate; ++k) {
@@ -5001,18 +5020,25 @@ restart:
 	  int dim = - 2;
 	  long dquot = -1;
 
+    if(elim_block_len > 0 && print_gb == 0){
+      if(info_level){
+        fprintf(stderr, "Warning: elim order not available for rational parametrizations\n");
+        fprintf(stderr, "Computing Groebner basis\n");
+        print_gb=2;
+      }
+    }
 	  b = real_msolve_qq(*mpz_paramp,
-			     &param,
-                             &dim,
-                             &dquot,
-                             nb_real_roots_ptr,
-                             real_roots_ptr,
-                             real_pts_ptr,
-                             gens,
-                             initial_hts, nr_threads, max_pairs,
-                             elim_block_len, update_ht,
-                             la_option, use_signatures, info_level, print_gb,
-                             generate_pbm, precision, files, round, get_param);
+                       &param,
+                       &dim,
+                       &dquot,
+                       nb_real_roots_ptr,
+                       real_roots_ptr,
+                       real_pts_ptr,
+                       gens,
+                       initial_hts, nr_threads, max_pairs,
+                       elim_block_len, update_ht,
+                       la_option, use_signatures, info_level, print_gb,
+                       generate_pbm, precision, files, round, get_param);
           if(print_gb){
             return 0;
           }
@@ -5664,16 +5690,34 @@ restart:
 
             int dim = - 2;
             long dquot = -1;
-            /* experimental code */
-            /* if(print_gb){ */
-            /*   fprintf(stderr, "\n\nWe enter in experimental code\n\n"); */
-            /*   msolve_gbtrace_qq(&dim, &dquot, gens, initial_hts, nr_threads, */
-            /*                     max_pairs, elim_block_len, update_ht, */
-            /*                     la_option, use_signatures, info_level, */
-            /*                     print_gb, generate_pbm, /\* pbm_file, *\/ */
-            /*                     files); */
-            /*   return 0; */
-            /* } */
+
+            if(elim_block_len && print_gb == 0){
+              if(info_level){
+                fprintf(stderr, "Warning: elim order not available for rational parametrizations\n");
+                fprintf(stderr, "Computing Groebner basis\n");
+                print_gb=2;
+              }
+            }
+
+            if(print_gb){
+
+              msflags_t flags;
+
+              flags->ht_size = initial_hts;
+              flags->nr_threads = nr_threads;
+              flags->max_nr_pairs = max_pairs;
+              flags->elim_block_len = elim_block_len;
+              flags->reset_ht = update_ht;
+              flags->la_option = la_option;
+              flags->use_signatures = use_signatures;
+              flags->info_level = info_level;
+              flags->pbm_file = generate_pbm;
+              flags->print_gb = print_gb;
+              flags->files = files;
+
+              print_msolve_gbtrace_qq(gens, flags);
+              return 0;
+            }
 
             b = real_msolve_qq(*mpz_paramp,
                     &param,

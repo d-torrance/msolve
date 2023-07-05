@@ -105,7 +105,7 @@ static inline void display_help(char *str){
   fprintf(stdout, "         Default is 0. For a detailed description of the output\n");
   fprintf(stdout, "         format please see the general output data format section\n");
   fprintf(stdout, "         above.\n");
-  fprintf(stdout, "-q Q     Uses signature-based algotithms.\n");
+  fprintf(stdout, "-q Q     Uses signature-based algorithms.\n");
   fprintf(stdout, "         Default: 0 (no).\n");
   fprintf(stdout, "-r RED   Reduce Groebner basis.\n");
   fprintf(stdout, "         Default: 1 (yes).\n");
@@ -423,7 +423,8 @@ int main(int argc, char **argv){
 
     gens->rand_linear           = 0;
     gens->random_linear_form = malloc(sizeof(int32_t)*(nr_vars));
-    
+    gens->elim = elim_block_len;
+
     if(0 < field_char && field_char < pow(2, 15) && la_option > 2){
       fprintf(stderr, "Warning: characteristic is too low for choosing \nprobabilistic linear algebra\n");
       fprintf(stderr, "\t linear algebra option set to 2\n");

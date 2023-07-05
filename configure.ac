@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([msolve], [0.4.9], [ederc@mathematik.uni-kl.de])
+AC_INIT([msolve], [0.5.0], [ederc@mathematik.uni-kl.de,mohab.safey@lip6.fr])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign silent-rules subdir-objects color-tests parallel-tests])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_MACRO_DIR([m4])
@@ -70,5 +70,69 @@ AC_CONFIG_FILES([
  src/neogb/Makefile
  src/usolve/Makefile
  src/msolve/Makefile
+])
+AC_CONFIG_LINKS([
+ test/diff/diff_source.sh:test/diff/diff_source.sh
+ input_files/cp_d_3_n_4_p_2.ms:input_files/cp_d_3_n_4_p_2.ms
+ output_files/cp_d_3_n_4_p_2.res:output_files/cp_d_3_n_4_p_2.res
+ test/diff/diff_cp_d_3_n_4_p_2.sh:test/diff/diff_cp_d_3_n_4_p_2.sh
+ input_files/eco11-31.ms:input_files/eco11-31.ms
+ output_files/eco11-31.res:output_files/eco11-31.res
+ test/diff/diff_eco11-31.sh:test/diff/diff_eco11-31.sh
+ input_files/elim-31.ms:input_files/elim-31.ms
+ output_files/elim-31.res:output_files/elim-31.res
+ output_files/elim-31.e2.res:output_files/elim-31.e2.res
+ test/diff/diff_elim-31.sh:test/diff/diff_elim-31.sh
+ input_files/elim-qq.ms:input_files/elim-qq.ms
+ output_files/elim-qq.res:output_files/elim-qq.res
+ output_files/elim-qq.e2.res:output_files/elim-qq.e2.res
+ test/diff/diff_elim-qq.sh:test/diff/diff_elim-qq.sh
+ input_files/F4SAT-31.ms:input_files/F4SAT-31.ms
+ output_files/F4SAT-31.res:output_files/F4SAT-31.res
+ test/diff/diff_F4SAT-31.sh:test/diff/diff_F4SAT-31.sh
+ input_files/kat6-31.ms:input_files/kat6-31.ms
+ output_files/kat6-31.res:output_files/kat6-31.res
+ test/diff/diff_kat6-31.sh:test/diff/diff_kat6-31.sh
+ input_files/kat7-qq.ms:input_files/kat7-qq.ms
+ output_files/kat7-qq.res:output_files/kat7-qq.res
+ test/diff/diff_kat7-qq.sh:test/diff/diff_kat7-qq.sh
+ input_files/multy-qq.ms:input_files/multy-qq.ms
+ output_files/multy-qq.res:output_files/multy-qq.res
+ test/diff/diff_multy-qq.sh:test/diff/diff_multy-qq.sh
+ input_files/nonradical_shape-31.ms:input_files/nonradical_shape-31.ms
+ output_files/nonradical_shape-31.res:output_files/nonradical_shape-31.res
+ input_files/nonradical_shape-qq.ms:input_files/nonradical_shape-qq.ms
+ output_files/nonradical_shape-qq.res:output_files/nonradical_shape-qq.res
+ output_files/nonradical_shape-qq.p1024.res:output_files/nonradical_shape-qq.p1024.res
+ test/diff/diff_nonradical_shape-qq.sh:test/diff/diff_nonradical_shape-qq.sh
+ input_files/nonradical_radicalshape-31.ms:input_files/nonradical_radicalshape-31.ms
+ output_files/nonradical_radicalshape-31.res:output_files/nonradical_radicalshape-31.res
+ input_files/nonradical_radicalshape-qq.ms:input_files/nonradical_radicalshape-qq.ms
+ output_files/nonradical_radicalshape-qq.res:output_files/nonradical_radicalshape-qq.res
+ output_files/nonradical_radicalshape-qq.p3.res:output_files/nonradical_radicalshape-qq.p3.res
+ test/diff/diff_nonradical_radicalshape-qq.sh:test/diff/diff_nonradical_radicalshape-qq.sh
+ input_files/one-16.ms:input_files/one-16.ms
+ output_files/one-16.res:output_files/one-16.res
+ test/diff/diff_one-16.sh:test/diff/diff_one-16.sh
+ input_files/one-31.ms:input_files/one-31.ms
+ output_files/one-31.res:output_files/one-31.res
+ test/diff/diff_one-31.sh:test/diff/diff_one-31.sh
+ input_files/one-qq.ms:input_files/one-qq.ms
+ output_files/one-qq.res:output_files/one-qq.res
+ output_files/one-qq.g2.res:output_files/one-qq.g2.res
+ test/diff/diff_one-qq.sh:test/diff/diff_one-qq.sh
+ input_files/radical_shape-31.ms:input_files/radical_shape-31.ms
+ output_files/radical_shape-31.res:output_files/radical_shape-31.res
+ test/diff/diff_radical_shape-31.sh:test/diff/diff_radical_shape-31.sh
+ input_files/radical_shape-qq.ms:input_files/radical_shape-qq.ms
+ output_files/radical_shape-qq.res:output_files/radical_shape-qq.res
+ test/diff/diff_radical_shape-qq.sh:test/diff/diff_radical_shape-qq.sh
+ input_files/reals_dim0.ms:input_files/reals_dim0.ms
+ output_files/reals_dim0.res:output_files/reals_dim0.res
+ output_files/reals_dim0.p256.res:output_files/reals_dim0.p256.res
+ test/diff/diff_reals_dim0.sh:test/diff/diff_reals_dim0.sh
+ input_files/xy-qq.ms:input_files/xy-qq.ms
+ output_files/xy-qq.res:output_files/xy-qq.res
+ test/diff/diff_xy-qq.sh:test/diff/diff_xy-qq.sh
 ])
 AC_OUTPUT

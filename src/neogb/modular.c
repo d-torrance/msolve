@@ -71,7 +71,7 @@ void free_trace(
         free(tr->ts[i].tri);
         free(tr->ts[i].rri);
         free(tr->ts[i].nlms);
-        free(tr->ts[i].lmh);
+        /* free(tr->ts[i].lmh); */
     }
     for (i = 0; i < tr->ltd; ++i) {
         free(tr->td[i].tri);
@@ -589,6 +589,16 @@ bs_t *f4sat_trace_application_test_phase(
                         sat->hm[i][j] = insert_in_hash_table(
                                 sht->ev[sat->hm[i][j]], bht);
                     }
+                    deg_t deg = bht->hd[sat->hm[i][OFFSET]].deg;
+                    if (st->nev > 0) {
+                        const len_t len = sat->hm[i][LENGTH]+OFFSET;
+                        for (j = OFFSET+1; j < len; ++j) {
+                            if (deg < bht->hd[sat->hm[i][j]].deg) {
+                                deg = bht->hd[sat->hm[i][j]].deg;
+                            }
+                        }
+                    }
+                    sat->hm[i][DEG] = deg;
                 }
             }
             clean_hash_table(sht);
@@ -604,23 +614,7 @@ bs_t *f4sat_trace_application_test_phase(
                 ----------------------------------------\n");
     }
     /* remove possible redudant elements */
-    for (i = 0; i < bs->lml; ++i) {
-        for (j = i+1; j < bs->lml; ++j) {
-            if (bs->red[bs->lmps[j]] == 0 && check_monomial_division(bs->hm[bs->lmps[i]][OFFSET], bs->hm[bs->lmps[j]][OFFSET], bht)) {
-                bs->red[bs->lmps[i]]  =   1;
-                break;
-            }
-        }
-    }
-    j = 0;
-    for (i = 0; i < bs->lml; ++i) {
-        if (bs->red[bs->lmps[i]] == 0) {
-            bs->lm[j]   = bs->lm[i];
-            bs->lmps[j] = bs->lmps[i];
-            ++j;
-        }
-    }
-    bs->lml = j;
+    final_remove_redundant_elements(bs, bht);
 
     /* apply non-redundant basis data from trace to basis
      * before interreduction */
@@ -741,13 +735,13 @@ bs_t *f4sat_trace_application_phase(
     update_lm(bs, bht, st);
 
     if(st->info_level>1){
-        printf("Application phase with prime p = %d, overall there are %u rounds\n",
-                fc, trace->ltd);
+        printf("Application phase with prime p = %d\n%u f4 rounds and %u saturation rounds\n",
+                fc, trace->ltd, trace->rld);
     }
     /* let's start the f4 rounds,  we are done when no more spairs
      * are left in the pairset */
     if (st->info_level > 1) {
-        printf("\ndeg     sel   pairs        mat          density \
+        printf("\nround   deg          mat          density \
           new data             time(rd)\n");
         printf("-------------------------------------------------\
 ----------------------------------------\n");
@@ -804,7 +798,7 @@ bs_t *f4sat_trace_application_phase(
             printf("%13.2f sec\n", rrt1-rrt0);
         }
         /* saturation step starts here */
-        if (trace->rd[ctr]  ==  round) {
+        while (ctr <= trace->rld && trace->rd[ctr]  ==  round) {
             ctr++;
             sat_deg = trace->ts[ts_ctr].deg;
             /* check for new elements to be tested for adding saturation
@@ -823,7 +817,7 @@ bs_t *f4sat_trace_application_phase(
             if (mat->nru > 0) {
                 if (st->info_level > 1) {
                     /* printf("kernel computation "); */
-                    printf("%5u kernel", sat_deg);
+                    printf("%5u kernel", ctr);
                 }
                 /* int ctr = 0;
                  * for (int ii = 1; ii < sat->ld; ++ii) {
@@ -894,6 +888,16 @@ bs_t *f4sat_trace_application_phase(
                         sat->hm[i][j] = insert_in_hash_table(
                                 sht->ev[sat->hm[i][j]], bht);
                     }
+                    deg_t deg = bht->hd[sat->hm[i][OFFSET]].deg;
+                    if (st->nev > 0) {
+                        const len_t len = sat->hm[i][LENGTH]+OFFSET;
+                        for (j = OFFSET+1; j < len; ++j) {
+                            if (deg < bht->hd[sat->hm[i][j]].deg) {
+                                deg = bht->hd[sat->hm[i][j]].deg;
+                            }
+                        }
+                    }
+                    sat->hm[i][DEG] = deg;
                 }
             }
             clean_hash_table(sht);
@@ -906,7 +910,7 @@ bs_t *f4sat_trace_application_phase(
     }
     if (st->info_level > 1) {
         printf("-------------------------------------------------\
-                ----------------------------------------\n");
+----------------------------------------\n");
     }
 
     /* apply non-redundant basis data from trace to basis
@@ -1081,24 +1085,7 @@ bs_t *f4_trace_learning_phase(
 ----------------------------------------\n");
     }
     /* remove possible redudant elements */
-    for (i = 0; i < bs->lml; ++i) {
-        for (j = i+1; j < bs->lml; ++j) {
-            if (bs->red[bs->lmps[j]] == 0 && check_monomial_division(bs->hm[bs->lmps[i]][OFFSET], bs->hm[bs->lmps[j]][OFFSET], bht)) {
-                bs->red[bs->lmps[i]]  =   1;
-                break;
-            }
-        }
-    }
-    j = 0;
-    for (i = 0; i < bs->lml; ++i) {
-        if (bs->red[bs->lmps[i]] == 0) {
-            bs->lm[j]   = bs->lm[i];
-            bs->lmps[j] = bs->lmps[i];
-            ++j;
-        }
-    }
-
-    bs->lml = j;
+    final_remove_redundant_elements(bs, bht);
 
     /* store information in trace */
     trace->lml  = bs->lml;
@@ -1331,7 +1318,6 @@ end_sat_step:
                 update_multipliers(&qb, &bht, &sht, sat, st, bs, ii);
                 /* check for monomial multiples of elements from saturation list */
                 select_saturation(sat, mat, st, sht, bht);
-
                 symbolic_preprocessing(mat, bs, st, sht, NULL, bht);
 
                 /* It may happen that there is no reducer at all for the
@@ -1366,8 +1352,9 @@ end_sat_step:
                         if (mat->np > 0) {
                             convert_sparse_matrix_rows_to_basis_elements_use_sht(
                                     -1, mat, bs, bht, hcmm, st);
-                            add_minimal_lmh_to_trace(trace, bs);
+                            /* add_minimal_lmh_to_trace(trace, bs); */
                             trace->ts[trace->lts].deg = ii;
+                            trace->ts[trace->lts].f4rd = round;
                             trace->lts++;
                             if (trace->lts == trace->sts) {
                                 trace->sts  *=  2;
@@ -1405,7 +1392,18 @@ end_sat_step:
                             sat->hm[i][j] = insert_in_hash_table(
                                     sht->ev[sat->hm[i][j]], bht);
                         }
+                        deg_t deg = bht->hd[sat->hm[i][OFFSET]].deg;
+                        if (st->nev > 0) {
+                            const len_t len = sat->hm[i][LENGTH]+OFFSET;
+                            for (j = OFFSET+1; j < len; ++j) {
+                                if (deg < bht->hd[sat->hm[i][j]].deg) {
+                                    deg = bht->hd[sat->hm[i][j]].deg;
+                                }
+                            }
+                        }
+                        sat->hm[i][DEG] = deg;
                     }
+
                 }
                 clean_hash_table(sht);
 
@@ -1415,6 +1413,7 @@ end_sat_step:
                 }
                 if (bld != bs->ld) {
                     next_deg  = ii;
+                    round++;
                     goto end_sat_step;
                 }
             }
@@ -1427,23 +1426,7 @@ end_sat_step:
 ----------------------------------------\n");
     }
     /* remove possible redudant elements */
-    for (i = 0; i < bs->lml; ++i) {
-        for (j = i+1; j < bs->lml; ++j) {
-            if (bs->red[bs->lmps[j]] == 0 && check_monomial_division(bs->hm[bs->lmps[i]][OFFSET], bs->hm[bs->lmps[j]][OFFSET], bht)) {
-                bs->red[bs->lmps[i]]  =   1;
-                break;
-            }
-        }
-    }
-    j = 0;
-    for (i = 0; i < bs->lml; ++i) {
-        if (bs->red[bs->lmps[i]] == 0) {
-            bs->lm[j]   = bs->lm[i];
-            bs->lmps[j] = bs->lmps[i];
-            ++j;
-        }
-    }
-    bs->lml = j;
+    final_remove_redundant_elements(bs, bht);
 
     /* store leading ideal hashes in trace */
     trace->lml  = bs->lml;
@@ -1547,8 +1530,6 @@ bs_t *f4sat_trace_learning_phase_2(
     hm_t *qb    = NULL;
 
     len_t next_deg  = 0;
-    /* global saturation data */
-    len_t sat_test  = 0;
     /* int sat_done    = 0; */
 
     /* hashes-to-columns map, initialized with length 1, is reallocated
@@ -1631,7 +1612,6 @@ bs_t *f4sat_trace_learning_phase_2(
         if (mat->np > 0) {
             convert_sparse_matrix_rows_to_basis_elements(
                     -1, mat, bs, bht, sht, hcm, st);
-            sat_test++;
         }
         clean_hash_table(sht);
         /* add lead monomials to trace, stores hashes in basis hash
@@ -1661,7 +1641,8 @@ bs_t *f4sat_trace_learning_phase_2(
         clean_hash_table(sht);
 
         /* saturation step starts here */
-        if (ts_ctr < trace->lts && minimal_traced_lm_is_equal(trace->ts[ts_ctr].lmh, trace->ts[ts_ctr].lml, bs) == 1) {
+        /* if (ts_ctr < trace->lts && minimal_traced_lm_is_equal(trace->ts[ts_ctr].lmh, trace->ts[ts_ctr].lml, bs) == 1) { */
+        if (ts_ctr < trace->lts && trace->ts[ts_ctr].f4rd == round) {
             next_deg  = trace->ts[ts_ctr].deg;
             rrt0  = realtime();
             /* printf("sat->deg %u\n", sat_deg); */
@@ -1742,6 +1723,16 @@ bs_t *f4sat_trace_learning_phase_2(
                         sat->hm[i][j] = insert_in_hash_table(
                                 sht->ev[sat->hm[i][j]], bht);
                     }
+                    deg_t deg = bht->hd[sat->hm[i][OFFSET]].deg;
+                    if (st->nev > 0) {
+                        const len_t len = sat->hm[i][LENGTH]+OFFSET;
+                        for (j = OFFSET+1; j < len; ++j) {
+                            if (deg < bht->hd[sat->hm[i][j]].deg) {
+                                deg = bht->hd[sat->hm[i][j]].deg;
+                            }
+                        }
+                    }
+                    sat->hm[i][DEG] = deg;
                 }
             }
             clean_hash_table(sht);
@@ -1759,23 +1750,7 @@ bs_t *f4sat_trace_learning_phase_2(
 ----------------------------------------\n");
     }
     /* remove possible redudant elements */
-    for (i = 0; i < bs->lml; ++i) {
-        for (j = i+1; j < bs->lml; ++j) {
-            if (bs->red[bs->lmps[j]] == 0 && check_monomial_division(bs->hm[bs->lmps[i]][OFFSET], bs->hm[bs->lmps[j]][OFFSET], bht)) {
-                bs->red[bs->lmps[i]]  =   1;
-                break;
-            }
-        }
-    }
-    j = 0;
-    for (i = 0; i < bs->lml; ++i) {
-        if (bs->red[bs->lmps[i]] == 0) {
-            bs->lm[j]   = bs->lm[i];
-            bs->lmps[j] = bs->lmps[i];
-            ++j;
-        }
-    }
-    bs->lml = j;
+    final_remove_redundant_elements(bs, bht);
 
     /* store information in trace */
     trace->lml  = bs->lml;
@@ -2094,23 +2069,7 @@ bs_t *modular_f4(
     }
 
     /* remove possible redudant elements */
-    for (i = 0; i < bs->lml; ++i) {
-        for (j = i+1; j < bs->lml; ++j) {
-            if (bs->red[bs->lmps[j]] == 0 && check_monomial_division(bs->hm[bs->lmps[i]][OFFSET], bs->hm[bs->lmps[j]][OFFSET], bht)) {
-                bs->red[bs->lmps[i]]  =   1;
-                break;
-            }
-        }
-    }
-    j = 0;
-    for (i = 0; i < bs->lml; ++i) {
-        if (bs->red[bs->lmps[i]] == 0) {
-            bs->lm[j]   = bs->lm[i];
-            bs->lmps[j] = bs->lmps[i];
-            ++j;
-        }
-    }
-    bs->lml = j;
+    final_remove_redundant_elements(bs, bht);
 
 #if 0
     /* eliminate variables if accessible */

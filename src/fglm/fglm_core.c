@@ -439,7 +439,8 @@ static inline void sparse_mat_fglm_mult_vec(CF_t *res, sp_matfglm_t *mat,
                                             const uint64_t RED_64,
                                             const uint32_t preinv,
                                             const uint32_t pi1,
-                                            const uint32_t pi2){
+                                            const uint32_t pi2,
+					    stat_t *st){
 
   szmat_t ncols = mat->ncols;
   szmat_t nrows = mat->nrows;
@@ -451,10 +452,11 @@ static inline void sparse_mat_fglm_mult_vec(CF_t *res, sp_matfglm_t *mat,
 #ifdef HAVE_AVX2
   /* matrix_vector_product(vres, mat->dense_mat, vec, ncols, nrows, prime, RED_32, RED_64); */
   _8mul_matrix_vector_product(vres, mat->dense_mat, vec, mat->dst,
-                              ncols, nrows, prime, RED_32, RED_64, preinv);
+                              ncols, nrows, prime, RED_32, RED_64,
+			      preinv,st);
 #else
   non_avx_matrix_vector_product(vres, mat->dense_mat, vec,
-                              ncols, nrows, prime, RED_32, RED_64);
+				ncols, nrows, prime, RED_32, RED_64,st);
 #endif
     for(szmat_t i = 0; i < nrows; i++){
       res[mat->dense_idx[i]] = vres[i];
@@ -477,7 +479,8 @@ static inline void sparse_mat_fglm_colon_mult_vec(CF_t *res, sp_matfglmcol_t *ma
 						  const uint64_t RED_64,
 						  const uint32_t preinv,
 						  const uint32_t pi1,
-						  const uint32_t pi2){
+						  const uint32_t pi2,
+						  stat_t *st){
 
   szmat_t ncols = mat->ncols;
   szmat_t nrows = mat->nrows;
@@ -499,11 +502,11 @@ static inline void sparse_mat_fglm_colon_mult_vec(CF_t *res, sp_matfglmcol_t *ma
   /* matrix_vector_product(vres, mat->dense_mat, vec, ncols, nrows, prime, RED_32, RED_64); */
   _8mul_matrix_vector_product(vres, mat->dense_mat, vec, mat->dst,
                               ncols, nrows, prime, RED_32, RED_64,
-			      preinv);
+			      preinv,st);
   /* printf ("mul AVX\n"); */
 #else
   non_avx_matrix_vector_product(vres, mat->dense_mat, vec,
-                              ncols, nrows, prime, RED_32, RED_64);
+				ncols, nrows, prime, RED_32, RED_64,st);
   /* printf ("mul non AVX\n"); */
 #endif
     for(szmat_t i = 0; i < nrows; i++){
@@ -578,7 +581,8 @@ static inline void generate_sequence(sp_matfglm_t *matrix, fglm_data_t * data,
   for(szmat_t i = 1; i < matrix->ncols; i++){
     sparse_mat_fglm_mult_vec(data->vvec, matrix,
                              data->vecinit, data->vecmult,
-                             prime, RED_32, RED_64, preinv, pi1, pi2);
+                             prime, RED_32, RED_64, preinv, pi1, pi2,
+			     st);
 #if DEBUGFGLM > 1
     print_vec(stderr, data->vvec, matrix->ncols);
 #endif
@@ -605,7 +609,8 @@ static inline void generate_sequence(sp_matfglm_t *matrix, fglm_data_t * data,
   for(szmat_t i = matrix->ncols; i < 2*matrix->ncols; i++){
     sparse_mat_fglm_mult_vec(data->vvec, matrix,
                              data->vecinit, data->vecmult,
-                             prime, RED_32, RED_64, preinv, pi1, pi2);
+                             prime, RED_32, RED_64, preinv, pi1, pi2,
+			     st);
 #if DEBUGFGLM > 1
     print_vec(stderr, data->vvec, matrix->ncols);
 #endif
@@ -640,7 +645,8 @@ static void generate_matrix_sequence(sp_matfglm_t *matxn, fglm_data_t * data,
                                      uint64_t* squvars,
                                      uint64_t* linvars,
                                      long nvars,
-                                     mod_t prime){
+                                     mod_t prime,
+                                     stat_t *st){
   uint32_t RED_32 = ((uint64_t)2<<31) % prime;
   uint32_t RED_64 = ((uint64_t)1<<63) % prime;
   RED_64 = (RED_64*2) % prime;
@@ -695,11 +701,12 @@ static void generate_matrix_sequence(sp_matfglm_t *matxn, fglm_data_t * data,
 }
 
 static void generate_sequence_verif(sp_matfglm_t *matrix, fglm_data_t * data,
-					   szmat_t block_size, long dimquot,
-					   uint64_t* squvars,
-					   uint64_t* linvars,
-					   long nvars,
-					   mod_t prime){
+				    szmat_t block_size, long dimquot,
+				    uint64_t* squvars,
+				    uint64_t* linvars,
+				    long nvars,
+				    mod_t prime,
+				    stat_t *st){
   uint32_t RED_32 = ((uint64_t)2<<31) % prime;
 
 
@@ -721,7 +728,8 @@ static void generate_sequence_verif(sp_matfglm_t *matrix, fglm_data_t * data,
   for(szmat_t i = 1; i < matrix->ncols; i++){
     sparse_mat_fglm_mult_vec(data->vvec, matrix,
                              data->vecinit, data->vecmult,
-                             prime, RED_32, RED_64, preinv, pi1, pi2);
+                             prime, RED_32, RED_64, preinv, pi1, pi2,
+			     st);
 #if DEBUGFGLM > 1
     print_vec(stderr, data->vvec, matrix->ncols);
 #endif
@@ -754,7 +762,8 @@ static void generate_sequence_verif(sp_matfglm_t *matrix, fglm_data_t * data,
   for(szmat_t i = matrix->ncols; i < 2*matrix->ncols; i++){
     sparse_mat_fglm_mult_vec(data->vvec, matrix,
                              data->vecinit, data->vecmult,
-                             prime, RED_32, RED_64, preinv, pi1, pi2);
+                             prime, RED_32, RED_64, preinv, pi1, pi2,
+			     st);
 #if DEBUGFGLM > 1
     print_vec(stderr, data->vvec, matrix->ncols);
 #endif
@@ -1462,7 +1471,8 @@ param_t *nmod_fglm_compute(sp_matfglm_t *matrix, const mod_t prime, const long n
                            uint64_t *linvars,
                            uint32_t *lineqs,
                            uint64_t *squvars,
-                           const int info_level){
+                           const int info_level,
+			   stat_t *st){
 #if DEBUGFGLM > 0
   fprintf(stderr, "prime = %u\n", prime);
 #endif
@@ -1504,13 +1514,13 @@ param_t *nmod_fglm_compute(sp_matfglm_t *matrix, const mod_t prime, const long n
   fprintf(stderr, "\n");
 #endif
 
-  double st = realtime();
+  double st1 = realtime();
 
 #ifdef BLOCKWIED
   fprintf(stderr, "Starts computation of matrix sequence\n");
   double st0 = omp_get_wtime();
   generate_matrix_sequence(matrix, data, block_size, dimquot,
-                           squvars, linvars, nvars, prime);
+                           squvars, linvars, nvars, prime, st);
   double et0 = omp_get_wtime() - st0;
   fprintf(stderr, "Matrix sequence computed\n");
   fprintf(stderr, "Elapsed time : %.2f\n", et0);
@@ -1518,15 +1528,15 @@ param_t *nmod_fglm_compute(sp_matfglm_t *matrix, const mod_t prime, const long n
   exit(1);
 #else
   generate_sequence_verif(matrix, data, block_size, dimquot,
-			  squvars, linvars, nvars, prime);
+			  squvars, linvars, nvars, prime, st);
 #endif
   if(info_level > 1){
     double nops = 2 * (matrix->nrows/ 1000.0) * (matrix->ncols / 1000.0)  * (matrix->ncols / 1000.0);
-    double rt = realtime()-st;
-    fprintf(stderr, "Time spent to generate sequence (elapsed): %.2f sec (%.2f Gops/sec)\n", rt, nops / rt);
+    double rt1 = realtime()-st1;
+    fprintf(stderr, "Time spent to generate sequence (elapsed): %.2f sec (%.2f Gops/sec)\n", rt1, nops / rt1);
   }
 
-  st = realtime();
+  st1 = realtime();
 
   /* Berlekamp-Massey data */
   fglm_bms_data_t *data_bms = allocate_fglm_bms_data(dimquot, prime);
@@ -1537,7 +1547,7 @@ param_t *nmod_fglm_compute(sp_matfglm_t *matrix, const mod_t prime, const long n
 
   if(info_level){
     fprintf(stderr, "Time spent to compute eliminating polynomial (elapsed: %.2f sec\n",
-            realtime()-st);
+            realtime()-st1);
   }
 
 
@@ -1547,7 +1557,7 @@ param_t *nmod_fglm_compute(sp_matfglm_t *matrix, const mod_t prime, const long n
       fprintf(stderr, "Elimination polynomial is squarefree.\n");
     }
 
-    st = realtime();
+    st1 = realtime();
     if(compute_parametrizations(param, data, data_bms,
                                 dim, dimquot, block_size,
                                 nlins, linvars, lineqs,
@@ -1589,7 +1599,7 @@ param_t *nmod_fglm_compute(sp_matfglm_t *matrix, const mod_t prime, const long n
   }
   if(info_level){
     fprintf(stderr, "Time spent to compute parametrizations (elapsed): %.2f sec\n",
-            realtime()-st);
+            realtime()-st1);
     fprintf(stderr, "Parametrizations done.\n");
   }
   free_fglm_bms_data(data_bms);
@@ -1608,7 +1618,8 @@ param_t *nmod_fglm_compute_trace_data(sp_matfglm_t *matrix, mod_t prime,
                                       int info_level,
                                       fglm_data_t **bdata,
                                       fglm_bms_data_t **bdata_bms,
-                                      int *success){
+                                      int *success,
+				      stat_t *st){
 #if DEBUGFGLM > 0
   fprintf(stderr, "prime = %u\n", prime);
 #endif
@@ -1644,13 +1655,13 @@ param_t *nmod_fglm_compute_trace_data(sp_matfglm_t *matrix, mod_t prime,
 
   ulong dimquot = (matrix->ncols);
 
-  double st = realtime();
+  double st_fglm = realtime();
 
 #if BLOCKWIED > 0
   fprintf(stderr, "Starts computation of matrix sequence\n");
   double st0 = omp_get_wtime();
   generate_matrix_sequence(matrix, *bdata, block_size, dimquot,
-                           squvars, linvars, nvars, prime);
+                           squvars, linvars, nvars, prime, st);
   double et0 = omp_get_wtime() - st0;
   fprintf(stderr, "Matrix sequence computed\n");
   fprintf(stderr, "Elapsed time : %.2f\n", et0);
@@ -1658,16 +1669,16 @@ param_t *nmod_fglm_compute_trace_data(sp_matfglm_t *matrix, mod_t prime,
   exit(1);
 #else
   generate_sequence_verif(matrix, *bdata, block_size, dimquot,
-                          squvars, linvars, nvars, prime);
+                          squvars, linvars, nvars, prime, st);
 #endif
 
   if(info_level){
     double nops = 2 * (matrix->nrows/ 1000.0) * (matrix->ncols / 1000.0)  * (matrix->ncols / 1000.0);
-    double rt = realtime()-st;
-    fprintf(stderr, "Time spent to generate sequence (elapsed): %.2f sec (%.2f Gops/sec)\n", rt, nops / rt);
+    double rt_fglm = realtime()-st_fglm;
+    fprintf(stderr, "Time spent to generate sequence (elapsed): %.2f sec (%.2f Gops/sec)\n", rt_fglm, nops / rt_fglm);
   }
 
-  st = realtime();
+  st_fglm = realtime();
 
   /* Berlekamp-Massey data */
   *bdata_bms = allocate_fglm_bms_data(dimquot, prime);
@@ -1678,7 +1689,7 @@ param_t *nmod_fglm_compute_trace_data(sp_matfglm_t *matrix, mod_t prime,
 
   if(info_level){
     fprintf(stderr, "Time spent to compute eliminating polynomial (elapsed): %.2f sec\n",
-            realtime()-st);
+            realtime()-st_fglm);
   }
 
 
@@ -1763,7 +1774,8 @@ int nmod_fglm_compute_apply_trace_data(sp_matfglm_t *matrix,
                                        fglm_data_t *data_fglm,
                                        fglm_bms_data_t *data_bms,
                                        const long deg_init,
-                                       const int info_level){
+                                       const int info_level,
+				       stat_t *st){
 #if DEBUGFGLM > 0
   fprintf(stderr, "prime = %u\n", prime);
 #endif
@@ -1806,13 +1818,13 @@ int nmod_fglm_compute_apply_trace_data(sp_matfglm_t *matrix,
   fprintf(stderr, "\n");
 #endif
 
-  double st = realtime();
+  double st_fglm = realtime();
 
   //////////////////////////////////////////////////////////////////
 
-  /* generate_sequence(matrix, data_fglm, block_size, dimquot, prime); */
+  /* generate_sequence(matrix, data_fglm, block_size, dimquot, prime, st); */
   generate_sequence_verif(matrix, data_fglm, block_size, dimquot,
-                          squvars, linvars, nvars, prime);
+                          squvars, linvars, nvars, prime, st);
   /* fprintf(stderr, "Matrix: \n"); */
   /* display_fglm_matrix(stderr, matrix); */
   /* fprintf(stderr, "\n"); */
@@ -1821,11 +1833,11 @@ int nmod_fglm_compute_apply_trace_data(sp_matfglm_t *matrix,
 
   if(info_level){
     double nops = 2 * (matrix->nrows/ 1000.0) * (matrix->ncols / 1000.0)  * (matrix->ncols / 1000.0);
-    double rt = realtime()-st;
-    fprintf(stderr, "Time spent to generate sequence (elapsed): %.2f sec (%.2f Gops/sec)\n", rt, nops / rt);
+    double rt_fglm = realtime()-st_fglm;
+    fprintf(stderr, "Time spent to generate sequence (elapsed): %.2f sec (%.2f Gops/sec)\n", rt_fglm, nops / rt_fglm);
   }
 
-  st = realtime();
+  st_fglm = realtime();
 
   fglm_bms_data_set_prime(data_bms, prime);
 
@@ -1835,7 +1847,7 @@ int nmod_fglm_compute_apply_trace_data(sp_matfglm_t *matrix,
 
   if(info_level){
     fprintf(stderr, "Time spent to compute eliminating polynomial (elapsed): %.2f sec\n",
-            realtime()-st);
+            realtime()-st_fglm);
   }
   if(param->elim->length-1 != deg_init){
     fprintf(stderr, "Warning: Degree of elim poly = %ld\n", param->elim->length-1);
@@ -1898,7 +1910,7 @@ guess_sequence_colon(sp_matfglmcol_t *matrix, fglm_data_t * data,
 		     szmat_t block_size, long dimquot, mod_t prime,
 		     param_t * param, fglm_bms_data_t * data_bms,
 		     uint64_t *linvars, uint32_t *lineqs, const long nvars,
-		     long *dim_ptr, const int info_level){
+		     long *dim_ptr, const int info_level, stat_t *st){
   /* printf ("modulo %d\n",prime); */
   /* printf ("size   %d\n",matrix->ncols); */
   /* printf ("leftvec\n"); */
@@ -1946,7 +1958,8 @@ guess_sequence_colon(sp_matfglmcol_t *matrix, fglm_data_t * data,
   while (i <= 2*tentative_degree-1) {
     sparse_mat_fglm_colon_mult_vec(data->vvec, matrix,
 				   data->vecinit, data->vecmult,
-				   prime, RED_32, RED_64, preinv, pi1, pi2);
+				   prime, RED_32, RED_64, preinv, pi1,
+				   pi2,st);
     /* printf ("sparse_mat\n"); */
 #if DEBUGFGLM > 1
     print_vec(stderr, data->vvec, matrix->ncols);
@@ -2005,7 +2018,7 @@ static inline void generate_sequence_colon(sp_matfglmcol_t *matrix,
 					   fglm_data_t * data,
 					   CF_t * leftvec,
 					   szmat_t block_size, long dimquot,
-					   mod_t prime){
+					   mod_t prime, stat_t *st){
 
   uint32_t RED_32 = ((uint64_t)2<<31) % prime;
 
@@ -2033,7 +2046,8 @@ static inline void generate_sequence_colon(sp_matfglmcol_t *matrix,
   for(szmat_t i = 1; i < matrix->ncols; i++){
     sparse_mat_fglm_colon_mult_vec(data->vvec, matrix,
 				   data->vecinit, data->vecmult,
-				   prime, RED_32, RED_64, preinv, pi1, pi2);
+				   prime, RED_32, RED_64, preinv, pi1,
+				   pi2,st);
 #if DEBUGFGLM > 1
     print_vec(stderr, data->vvec, matrix->ncols);
 #endif
@@ -2065,7 +2079,8 @@ static inline void generate_sequence_colon(sp_matfglmcol_t *matrix,
   for(szmat_t i = matrix->ncols; i < 2*matrix->ncols; i++){
     sparse_mat_fglm_colon_mult_vec(data->vvec, matrix,
 				   data->vecinit, data->vecmult,
-				   prime, RED_32, RED_64, preinv, pi1, pi2);
+				   prime, RED_32, RED_64, preinv, pi1,
+				   pi2,st);
 #if DEBUGFGLM > 1
     print_vec(stderr, data->vvec, matrix->ncols);
 #endif
@@ -2112,7 +2127,8 @@ param_t *nmod_fglm_guess_colon(sp_matfglmcol_t *matrix,
 			       uint64_t *linvars,
 			       uint32_t *lineqs,
 			       uint64_t *squvars,
-			       const int info_level){
+			       const int info_level,
+			       stat_t *st){
 #if DEBUGFGLM > 0
   fprintf(stderr, "prime = %u\n", prime);
 #endif
@@ -2158,24 +2174,24 @@ param_t *nmod_fglm_guess_colon(sp_matfglmcol_t *matrix,
   fprintf(stderr, "\n");
 #endif
   long dim=0;
-  double st = omp_get_wtime();
+  double st0 = omp_get_wtime();
 
   //////////////////////////////////////////////////////////////////
-  /* generate_sequence(matrix, data, block_size, dimquot, prime); */
+  /* generate_sequence(matrix, data, block_size, dimquot, prime, st); */
   /* generate_sequence_verif(matrix, data, block_size, dimquot, */
-  /* 			  squvars, linvars, nvars, prime); */
+  /* 			  squvars, linvars, nvars, prime, st); */
   /* printf ("guess\n"); */
   guess_sequence_colon(matrix, data, leftvec, leftvecparam, block_size, dimquot,
 		       prime,
 		       param, data_bms, linvars, lineqs, nvars,
-		       &dim, info_level);
+		       &dim, info_level, st);
   /* printf ("guessed\n"); */
   //////////////////////////////////////////////////////////////////
 
   if(info_level){
     fprintf(stderr,"Time spent to generate sequence\n");
     fprintf(stderr,"and compute eliminating polynomial (elapsed): %.2f sec\n",
-            omp_get_wtime()-st);
+            omp_get_wtime()-st0);
     fprintf(stderr, "Elimination done.\n");
   }
 
@@ -2212,7 +2228,7 @@ param_t *nmod_fglm_guess_colon(sp_matfglmcol_t *matrix,
   }
   if(info_level){
     fprintf(stderr, "Time spent to compute parametrizations (elapsed): %.2f sec\n",
-            omp_get_wtime()-st);
+            omp_get_wtime()-st0);
     fprintf(stderr, "Parametrizations done.\n");
   }
   free_fglm_bms_data(data_bms);
