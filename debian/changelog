@@ -1,3 +1,9 @@
+msolve (0.5.0-1) UNRELEASED; urgency=medium
+
+  * New upstream release.
+
+ -- Doug Torrance <dtorrance@debian.org>  Wed, 05 Jul 2023 10:34:18 -0400
+
 msolve (0.4.9-3) unstable; urgency=medium
 
   * debian/tests/control
