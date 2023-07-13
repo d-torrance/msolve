@@ -1,3 +1,12 @@
+msolve (0.5.0-2) unstable; urgency=medium
+
+  * debian/lintian-overrides
+    - Update version number in package-name-doesnt-match-sonames override.
+  * debian/rules
+    - Skip tests on 32-bit architectures to prevent FTBFS.
+
+ -- Doug Torrance <dtorrance@debian.org>  Thu, 13 Jul 2023 12:34:36 -0400
+
 msolve (0.5.0-1) unstable; urgency=medium
 
   * New upstream release.
