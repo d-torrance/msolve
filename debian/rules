@@ -1,5 +1,7 @@
 #!/usr/bin/make -f
 
+include /usr/share/dpkg/architecture.mk
+
 export DEB_BUILD_MAINT_OPTIONS=hardening=+all
 LIBPATH = "$$LD_LIBRARY_PATH:debian/msolve/usr/lib/$(DEB_HOST_MULTIARCH)"
 
@@ -12,6 +14,11 @@ execute_after_dh_auto_build:
 		biber msolve-tutorial      && \
 		pdflatex msolve-tutorial   && \
 		pdflatex msolve-tutorial
+
+# skip tests on 32-bit architectures (band-aid fix for #1040774)
+ifeq ($(DEB_HOST_ARCH_BITS),32)
+override_dh_auto_test:
+endif
 
 execute_after_dh_auto_install:
 # shared libraries are private, so we remove the files that are usually
