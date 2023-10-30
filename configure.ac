@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([msolve], [0.5.0], [ederc@mathematik.uni-kl.de,mohab.safey@lip6.fr])
+AC_INIT([msolve], [0.6.0], [ederc@mathematik.uni-kl.de,mohab.safey@lip6.fr])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign silent-rules subdir-objects color-tests parallel-tests])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_MACRO_DIR([m4])
@@ -66,6 +66,8 @@ AC_CHECK_FUNCS([floor getdelim gettimeofday memmove memset pow sqrt strchr strst
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([
  Makefile
+ msolve.pc
+ include/Makefile
  src/fglm/Makefile
  src/neogb/Makefile
  src/usolve/Makefile
@@ -90,12 +92,21 @@ AC_CONFIG_LINKS([
  input_files/F4SAT-31.ms:input_files/F4SAT-31.ms
  output_files/F4SAT-31.res:output_files/F4SAT-31.res
  test/diff/diff_F4SAT-31.sh:test/diff/diff_F4SAT-31.sh
+ input_files/F4SAT-byone-31.ms:input_files/F4SAT-byone-31.ms
+ output_files/F4SAT-byone-31.res:output_files/F4SAT-byone-31.res
+ test/diff/diff_F4SAT-byone-31.sh:test/diff/diff_F4SAT-byone-31.sh
  input_files/kat6-31.ms:input_files/kat6-31.ms
  output_files/kat6-31.res:output_files/kat6-31.res
  test/diff/diff_kat6-31.sh:test/diff/diff_kat6-31.sh
  input_files/kat7-qq.ms:input_files/kat7-qq.ms
  output_files/kat7-qq.res:output_files/kat7-qq.res
  test/diff/diff_kat7-qq.sh:test/diff/diff_kat7-qq.sh
+ input_files/multy-16.ms:input_files/multy-16.ms
+ output_files/multy-16.res:output_files/multy-16.res
+ test/diff/diff_multy-16.sh:test/diff/diff_multy-16.sh
+ input_files/multy-31.ms:input_files/multy-31.ms
+ output_files/multy-31.res:output_files/multy-31.res
+ test/diff/diff_multy-31.sh:test/diff/diff_multy-31.sh
  input_files/multy-qq.ms:input_files/multy-qq.ms
  output_files/multy-qq.res:output_files/multy-qq.res
  test/diff/diff_multy-qq.sh:test/diff/diff_multy-qq.sh
@@ -131,8 +142,36 @@ AC_CONFIG_LINKS([
  output_files/reals_dim0.res:output_files/reals_dim0.res
  output_files/reals_dim0.p256.res:output_files/reals_dim0.p256.res
  test/diff/diff_reals_dim0.sh:test/diff/diff_reals_dim0.sh
+ input_files/reals_dim0-swapvar.ms:input_files/reals_dim0-swapvar.ms
+ output_files/reals_dim0-swapvar.res:output_files/reals_dim0-swapvar.res
+ output_files/reals_dim0-swapvar.p256.res:output_files/reals_dim0-swapvar.p256.res
+ test/diff/diff_reals_dim0-swapvar.sh:test/diff/diff_reals_dim0-swapvar.sh
+ input_files/bug-empty-tracer.ms:input_files/bug-empty-tracer.ms
+ output_files/bug-empty-tracer.res:output_files/bug-empty-tracer.res
+ test/diff/diff_bug_empty_tracer.sh:test/diff/diff_bug_empty_tracer.sh
+ input_files/bug-2nd-prime-bad.ms:input_files/bug-2nd-prime-bad.ms
+ output_files/bug-2nd-prime-bad.res:output_files/bug-2nd-prime-bad.res
+ test/diff/diff_bug_2nd_prime_bad.sh:test/diff/diff_bug_2nd_prime_bad.sh
  input_files/xy-qq.ms:input_files/xy-qq.ms
  output_files/xy-qq.res:output_files/xy-qq.res
  test/diff/diff_xy-qq.sh:test/diff/diff_xy-qq.sh
+ input_files/bug_68.ms:input_files/bug_68.ms
+ output_files/bug_68.res:output_files/bug_68.res
+ test/diff/diff_bug_68.sh:test/diff/diff_bug_68.sh
+ input_files/mq_2_1.ms:input_files/mq_2_1.ms
+ output_files/mq_2_1.res:output_files/mq_2_1.res
+ test/diff/diff_mq_2_1.sh:test/diff/diff_mq_2_1.sh
+ input_files/input-overflow-16.ms:input_files/input-overflow-16.ms
+ output_files/input-overflow-16.res:output_files/input-overflow-16.res
+ test/diff/diff_input-overflow-16.sh:test/diff/diff_input-overflow-16.sh
+ input_files/nf-8.ms:input_files/nf-8.ms
+ output_files/nf-8.res:output_files/nf-8.res
+ test/diff/diff_nf_8.sh:test/diff/diff_nf_8.sh
+ input_files/nf-16.ms:input_files/nf-16.ms
+ output_files/nf-16.res:output_files/nf-16.res
+ test/diff/diff_nf_16.sh:test/diff/diff_nf_16.sh
+ input_files/nf-31.ms:input_files/nf-31.ms
+ output_files/nf-31.res:output_files/nf-31.res
+ test/diff/diff_nf_31.sh:test/diff/diff_nf_31.sh
 ])
 AC_OUTPUT

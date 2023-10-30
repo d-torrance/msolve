@@ -243,9 +243,9 @@ static inline void display_gbmodpoly_cf_32(FILE *file,
   fprintf(file, "nprimes = %d\n", modgbs->nprimes);
   fprintf(stderr, "primes = [");
   for(uint32_t i = 0; i < modgbs->alloc-1; i++){
-    fprintf(file, "%lu, ", modgbs->primes[i]);
+    fprintf(file, "%lu, ", (unsigned long)modgbs->primes[i]);
   }
-  fprintf(file, "%lu]\n", modgbs->primes[modgbs->alloc -1]);
+  fprintf(file, "%lu]\n", (unsigned long)modgbs->primes[modgbs->alloc -1]);
   fprintf(file, "numpolys = %d\n", modgbs->ld);
   fprintf(file, "[\n");
   for(uint32_t i = 0; i < modgbs->ld; i++){
@@ -340,6 +340,12 @@ static inline void display_lm_gbmodpoly_cf_qq(FILE *file,
                                               gb_modpoly_t modgbs,
                                               data_gens_ff_t *gens){
   int32_t p = modgbs->ld ;
+
+  if(p==0){
+    fprintf(file, "[0]:\n");
+    return;
+  }
+
   fprintf(file, "[");
   for(int i = 0; i < p-1; i++){
     if(modgbs->modpolys[i]->len == 0){
@@ -515,6 +521,7 @@ static inline int modpgbs_set(gb_modpoly_t modgbs,
     idx = bs->lmps[i];
     if (bs->hm[idx] == NULL) {
       fprintf(stderr, " poly is 0\n");
+      free(evi);
       exit(1);
     } else {
       hm  = bs->hm[idx]+OFFSET;
@@ -580,7 +587,7 @@ static int32_t * gb_modular_trace_learning(gb_modpoly_t modgbs,
                                            ht_t *tht,
                                            bs_t *bs_qq,
                                            ht_t *bht,
-                                           stat_t *st,
+                                           md_t *st,
                                            const int32_t fc,
                                            int info_level,
                                            int print_gb,
@@ -596,13 +603,14 @@ static int32_t * gb_modular_trace_learning(gb_modpoly_t modgbs,
     ca0 = realtime();
 
     bs_t *bs = NULL;
-    if(gens->field_char){
-      bs = bs_qq;
-      int boo = core_gba(&bs, &bht, &st);
-      if (!boo) {
+    /* if(gens->field_char){ */
+      int32_t err = 0;
+      bs = core_gba(bs_qq, st, &err, fc);
+      if (err) {
         printf("Problem with F4, stopped computation.\n");
         exit(1);
       }
+      /*
       free_shared_hash_data(bht);
     }
     else{
@@ -612,7 +620,7 @@ static int32_t * gb_modular_trace_learning(gb_modpoly_t modgbs,
       else{
         bs = gba_trace_learning_phase(trace, tht, bs_qq, bht, st, fc);
       }
-    }
+    } */
     rt = realtime()-ca0;
 
     if(info_level > 1){
@@ -644,7 +652,6 @@ static int32_t * gb_modular_trace_learning(gb_modpoly_t modgbs,
       }
       leadmons[0] = bexp_lm2;
     }
-
     /************************************************/
     /************************************************/
 
@@ -686,14 +693,14 @@ static int32_t * gb_modular_trace_learning(gb_modpoly_t modgbs,
             /* } */
             /* print_ff_basis_data( */
             /*                     files->out_file, "a", bs, bht, st, gens, print_gb); */
-            free_basis(&(bs));
+            free_basis_without_hash_table(&(bs));
             return NULL;
         }
     }
 
     /**************************************************/
 
-    free_basis(&(bs));
+    free_basis_without_hash_table(&(bs));
     return lmb;
 }
 
@@ -706,9 +713,9 @@ static void gb_modular_trace_application(gb_modpoly_t modgbs,
 
                                          trace_t **btrace,
                                          ht_t **btht,
-                                         const bs_t *bs_qq,
+                                         bs_t *bs_qq,
                                          ht_t **bht,
-                                         stat_t *st,
+                                         md_t *st,
                                          const int32_t fc,
                                          int info_level,
                                          bs_t **obs,
@@ -720,9 +727,9 @@ static void gb_modular_trace_application(gb_modpoly_t modgbs,
                                          double *stf4,
                                          int *bad_primes){
 
+  double rt = realtime();
   st->info_level = 0;
   /* tracing phase */
-  double ca0;
 
   /* F4 and FGLM are run using a single thread */
   /* st->nthrds is reset to its original value afterwards */
@@ -730,15 +737,38 @@ static void gb_modular_trace_application(gb_modpoly_t modgbs,
   memset(bad_primes, 0, (unsigned long)st->nprimes * sizeof(int));
 
   bs_t *bs = NULL;
-
-  ca0 = realtime();
-  if(st->laopt > 40){
+  int32_t error = 0;
+  bs = core_gba(bs_qq, st, &error, lp->p[0]);
+  *stf4 = realtime()-rt;
+  /* if(st->laopt > 40){
     bs = modular_f4(bs_qq, bht[0], st, lp->p[0]);
   }
   else{
     bs = gba_trace_application_phase(btrace[0], btht[0], bs_qq, bht[0], st, lp->p[0]);
   }
-  *stf4 = realtime()-ca0;
+  */
+  if (bs == NULL) {
+      bad_primes[0] = 1;
+      return;
+  }
+  int32_t lml = bs->lml;
+  if (st->nev > 0) {
+      int32_t j = 0;
+      for (len_t i = 0; i < bs->lml; ++i) {
+          if ((*bht)->ev[bs->hm[bs->lmps[i]][OFFSET]][0] == 0) {
+              bs->lm[j]   = bs->lm[i];
+              bs->lmps[j] = bs->lmps[i];
+              ++j;
+          }
+      }
+      lml = j;
+  }
+  if (lml != num_gb[0]) {
+      if (bs != NULL) {
+        free_basis_without_hash_table(&bs);
+      }
+      return;
+  }
 
   if(st->nev){
     get_lm_from_bs_trace_elim(bs, bht[0], leadmons_current[0], num_gb[0]);
@@ -758,7 +788,7 @@ static void gb_modular_trace_application(gb_modpoly_t modgbs,
   }
 
   if (bs != NULL) {
-    free_basis(&bs);
+    free_basis_without_hash_table(&bs);
   }
 
 }
@@ -902,7 +932,7 @@ static inline int ratrecon_lift_modgbs(gb_modpoly_t modgbs, data_lift_t dl,
           mpz_lcm(dl->tmp, dl->tmp, rden);
         }
         else{
-          fprintf(stderr, "[%d/%d]", k, modgbs->ld - 1);
+          /* fprintf(stderr, "[%d/%d]", k, modgbs->ld - 1); */
           mpz_set_ui(dl->gden, 1);
           mpz_clear(rnum);
           mpz_clear(rden);
@@ -1113,7 +1143,7 @@ int msolve_gbtrace_qq(
   const uint32_t prime_start = pow(2, 30);
 
   /* initialize stuff */
-  stat_t *st  = initialize_statistics();
+  md_t *st  = allocate_meta_data();
 
   int *invalid_gens   =   NULL;
   int res = validate_input_data(&invalid_gens, cfs, gens->lens, &field_char, &mon_order,
@@ -1144,13 +1174,11 @@ int msolve_gbtrace_qq(
   initialize_mstrace(msd, st);
 
   /* read in ideal, move coefficients to integers */
-  import_input_data(msd->bs_qq, msd->bht, st, gens->lens, gens->exps, cfs, invalid_gens);
+  import_input_data(msd->bs_qq, st, 0, st->ngens_input, gens->lens, gens->exps, cfs, invalid_gens);
   free(invalid_gens);
   invalid_gens  =   NULL;
 
-  if (st->info_level > 0) {
-    print_initial_statistics(stderr, st);
-  }
+  print_initial_statistics(stderr, st);
 
   /* for faster divisibility checks, needs to be done after we have
     * read some input data for applying heuristics */
@@ -1168,11 +1196,12 @@ int msolve_gbtrace_qq(
     msd->lp->old = 0;
     msd->lp->ld = 1;
     msd->lp->p = calloc(1, sizeof(uint32_t));
-    normalize_initial_basis(msd->bs_qq, st->fc);
+    normalize_initial_basis(msd->bs_qq, st->gfc);
   }
 
-  uint32_t prime = next_prime(1<<30);
-  uint32_t primeinit;
+  uint32_t prime = 0;
+  uint32_t primeinit = 0;
+  uint32_t lprime = 1303905299;
   srand(time(0));
 
   prime = next_prime(rand() % (1303905301 - (1<<30) + 1) + (1<<30));
@@ -1186,7 +1215,6 @@ int msolve_gbtrace_qq(
     msd->lp->p[0] = gens->field_char;
     primeinit = gens->field_char;
   }
-  prime = next_prime(1<<30);
 
   int success = 1;
 
@@ -1200,8 +1228,10 @@ int msolve_gbtrace_qq(
   initialize_rrec_data(recdata2);
 
   data_lift_t dlift;
+
   /* indicates that dlift has been already initialized */
   int dlinit = 0;
+
   double st_crt = 0;
   double st_rrec = 0;
 
@@ -1220,6 +1250,7 @@ int msolve_gbtrace_qq(
                                                  gens, maxbitsize,
                                                  files,
                                                  &success);
+
     if(lmb_ori == NULL || print_gb == 1){
       if(dlinit){
         data_lift_clear(dlift);
@@ -1243,7 +1274,7 @@ int msolve_gbtrace_qq(
     if(!dlinit){
       int nb = 0;
       int32_t *ldeg = array_nbdegrees((*msd->leadmons_ori), msd->num_gb[0],
-                                      msd->bht->nv, &nb);
+                                      msd->bht->nv - st->nev, &nb);
       data_lift_init(dlift, modgbs->ld, ldeg, nb);
       choose_coef_to_lift(modgbs, dlift);
       free(ldeg);
@@ -1279,7 +1310,7 @@ int msolve_gbtrace_qq(
 
     }
     /* duplicate data for multi-threaded multi-mod computation */
-    duplicate_data_mthread_gbtrace(st->nthrds, st, msd->num_gb,
+    duplicate_data_mthread_gbtrace(st->nthrds, msd->bs_qq, st, msd->num_gb,
                                    msd->leadmons_ori, msd->leadmons_current,
                                    msd->btrace);
 
@@ -1289,31 +1320,40 @@ int msolve_gbtrace_qq(
       ht_t *lht = copy_hash_table(msd->bht, st);
       msd->blht[i] = lht;
     }
-    msd->btht[0] = msd->tht;
-    for(int i = 1; i < st->nthrds; i++){
-      msd->btht[i] = copy_hash_table(msd->tht, st);
-    }
 
     if(info_level){
-      fprintf(stderr, "\nStarts trace based multi-modular computations\n");
+      fprintf(stderr, "\nStarts multi-modular computations\n");
     }
 
     learn = 0;
     while(apply){
 
+      prime = next_prime(prime);
+      if(prime >= lprime){
+        prime = next_prime(1<<30);
+      }
       /* generate lucky prime numbers */
-      msd->lp->p[0] = next_prime(prime);
+      msd->lp->p[0] = prime;
       while(is_lucky_prime_ui(prime, msd->bs_qq) || prime==primeinit){
         prime = next_prime(prime);
+        if(prime >= lprime){
+          prime = next_prime(1<<30);
+        }
         msd->lp->p[0] = prime;
       }
 
       int nthrds = 1; /* mono-threaded mult-mid comp */
       for(len_t i = 1; i < nthrds/* st->nthrds */; i++){
         prime = next_prime(prime);
+        if(prime >= lprime){
+          prime = next_prime(1<<30);
+        }
         msd->lp->p[i] = prime;
         while(is_lucky_prime_ui(prime, msd->bs_qq) || prime==primeinit){
           prime = next_prime(prime);
+          if(prime >= lprime){
+            prime = next_prime(1<<30);
+          }
           msd->lp->p[i] = prime;
         }
       }
@@ -1354,7 +1394,6 @@ int msolve_gbtrace_qq(
       int bad = 0;
       for(int i = 0; i < nthrds/* st->nthrds */; i++){
         if(msd->bad_primes[i] == 1){
-          fprintf(stderr, "badprimes[%d] is 1\n", i);
           bad = 1;
         }
       }
@@ -1422,6 +1461,7 @@ void print_msolve_gbtrace_qq(data_gens_ff_t *gens,
   msolve_gbtrace_qq(modgbs, gens, flags);
 
   if(flags->print_gb > 1){
+
     if(flags->files->out_file != NULL){
       FILE *ofile = fopen(flags->files->out_file, "w+");
       display_gbmodpoly_cf_qq(ofile, modgbs, gens);

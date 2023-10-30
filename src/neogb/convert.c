@@ -28,7 +28,7 @@
 static void convert_multipliers_to_columns(
         hi_t **hcmp,
         bs_t *sat,
-        stat_t *st,
+        md_t *st,
         ht_t *ht
         )
 {
@@ -78,10 +78,9 @@ static void convert_multipliers_to_columns(
 }
 
 static void convert_hashes_to_columns_sat(
-        hi_t **hcmp,
         mat_t *mat,
         bs_t *sat,
-        stat_t *st,
+        md_t *st,
         ht_t *sht
         )
 {
@@ -90,7 +89,7 @@ static void convert_hashes_to_columns_sat(
     hm_t *row;
     int64_t nterms = 0;
 
-    hi_t *hcm = *hcmp;
+    hi_t *hcm = st->hcm;
 
     /* timings */
     double ct0, ct1, rt0, rt1;
@@ -202,14 +201,14 @@ static void convert_hashes_to_columns_sat(
         printf(" %7d x %-7d %8.2f%%", mat->nr + sat->ld, mat->nc, density);
         fflush(stdout);
     }
-    *hcmp = hcm;
+    st->hcm = hcm;
 }
 
 
 static void sba_convert_hashes_to_columns(
         hi_t **hcmp,
         smat_t *smat,
-        stat_t *st,
+        md_t *st,
         ht_t *ht
         )
 {
@@ -298,9 +297,8 @@ static void sba_convert_hashes_to_columns(
 
 
 static void convert_hashes_to_columns(
-        hi_t **hcmp,
         mat_t *mat,
-        stat_t *st,
+        md_t *st,
         ht_t *sht
         )
 {
@@ -309,7 +307,7 @@ static void convert_hashes_to_columns(
     hm_t *row;
     int64_t nterms = 0;
 
-    hi_t *hcm = *hcmp;
+    hi_t *hcm = st->hcm;
 
     /* timings */
     double ct0, ct1, rt0, rt1;
@@ -338,13 +336,13 @@ static void convert_hashes_to_columns(
     sort_r(hcm, (unsigned long)j, sizeof(hi_t), hcm_cmp, sht);
 
     /* printf("hcm\n");
-     * for (int ii=0; ii<j; ++ii) {
-     *     printf("hcm[%d] = %d | idx %u | deg %u |", ii, hcm[ii], hds[hcm[ii]].idx, sht->ev[hcm[ii]][DEG]+sht->ev[hcm[ii]][sht->ebl]);
-     *     for (int jj = 0; jj < sht->evl; ++jj) {
-     *         printf("%d ", sht->ev[hcm[ii]][jj]);
-     *     }
-     *     printf("\n");
-     * } */
+    for (int ii=0; ii<j; ++ii) {
+        printf("hcm[%d] = %d | idx %u | deg %u |", ii, hcm[ii], hds[hcm[ii]].idx, sht->ev[hcm[ii]][DEG]+sht->ev[hcm[ii]][sht->ebl]);
+        for (int jj = 0; jj < sht->evl; ++jj) {
+            printf("%d ", sht->ev[hcm[ii]][jj]);
+        }
+        printf("\n");
+    } */
 
     mat->ncl  = k;
     mat->ncr  = (len_t)esld - 1 - mat->ncl;
@@ -356,6 +354,7 @@ static void convert_hashes_to_columns(
     for (k = 0; k < ld; ++k) {
         hds[hcm[k]].idx  = (hi_t)k;
     }
+
 
     /* map column positions to matrix rows */
 #pragma omp parallel for num_threads(st->nthrds) private(k, j, row)
@@ -410,7 +409,7 @@ static void convert_hashes_to_columns(
 
     /* compute density of matrix */
     nterms  *=  100; /* for percentage */
-    double density = (double)nterms / (double)mnr / (double)mat->nc;
+    double density = (double)nterms / (double)mnr / (double)ld;
 
     /* timings */
     ct1 = cputime();
@@ -421,7 +420,12 @@ static void convert_hashes_to_columns(
         printf(" %7d x %-7d %8.2f%%", mat->nr, mat->nc, density);
         fflush(stdout);
     }
-    *hcmp = hcm;
+    if ((int64_t)mat->nr * mat->nc > st->mat_max_nrows * st->mat_max_ncols) {
+        st->mat_max_nrows = mat->nr;
+        st->mat_max_ncols = mat->nc;
+        st->mat_max_density = density;
+    }
+    st->hcm = hcm;
 }
 
 static void sba_convert_columns_to_hashes(
@@ -441,11 +445,13 @@ static void sba_convert_columns_to_hashes(
 
 static void convert_columns_to_hashes(
         bs_t *bs,
-        const hi_t * const hcm,
+        const md_t *md,
         const hi_t * const hcmm
         )
 {
     len_t i, j;
+
+    const hi_t *hcm = md->hcm;
 
     for (i = 0; i < bs->ld; ++i) {
         if (bs->hm[i] != NULL) {
@@ -465,7 +471,7 @@ static void add_kernel_elements_to_basis(
         bs_t *kernel,
         const ht_t * const ht,
         const hi_t * const hcm,
-        stat_t *st
+        md_t *st
         )
 {
     len_t *terms  = (len_t *)calloc((unsigned long)sat->ld, sizeof(len_t));
@@ -548,7 +554,7 @@ static void return_normal_forms_to_basis(
         ht_t *bht,
         const ht_t * const sht,
         const hi_t * const hcm,
-        stat_t *st
+        md_t *st
         )
 {
     len_t i;
@@ -556,9 +562,12 @@ static void return_normal_forms_to_basis(
     const len_t np  = mat->np;
 
     /* timings */
-    double ct0, ct1, rt0, rt1;
-    ct0 = cputime();
-    rt0 = realtime();
+
+    double ct = cputime();
+    double rt = realtime();
+
+    free_basis_elements(bs);
+
     /* fix size of basis for entering new elements directly */
     check_enlarge_basis(bs, mat->np, st);
 
@@ -568,11 +577,43 @@ static void return_normal_forms_to_basis(
     for (i = 0; i < np; ++i) {
         if (rows[i] != NULL) {
             insert_in_basis_hash_table_pivots(rows[i], bht, sht, hcm, st);
-            bs->cf_32[bs->ld] = mat->cf_32[rows[i][COEFFS]];
+            switch (st->ff_bits) {
+                case 0:
+                    bs->cf_qq[bs->ld] = mat->cf_qq[rows[i][COEFFS]];
+                    break;
+                case 8:
+                    bs->cf_8[bs->ld]  = mat->cf_8[rows[i][COEFFS]];
+                    break;
+                case 16:
+                    bs->cf_16[bs->ld] = mat->cf_16[rows[i][COEFFS]];
+                    break;
+                case 32:
+                    bs->cf_32[bs->ld] = mat->cf_32[rows[i][COEFFS]];
+                    break;
+                default:
+                    bs->cf_32[bs->ld] = mat->cf_32[rows[i][COEFFS]];
+                    break;
+            }
             rows[i][COEFFS]   = bs->ld;
             bs->hm[bs->ld]    = rows[i];
         } else {
-            bs->cf_32[bs->ld] = NULL;
+            switch (st->ff_bits) {
+                case 0:
+                    bs->cf_qq[bs->ld] = NULL;
+                    break;
+                case 8:
+                    bs->cf_8[bs->ld]  = NULL;
+                    break;
+                case 16:
+                    bs->cf_16[bs->ld] = NULL;
+                    break;
+                case 32:
+                    bs->cf_32[bs->ld] = NULL;
+                    break;
+                default:
+                    bs->cf_32[bs->ld] = NULL;
+                    break;
+            }
             bs->hm[bs->ld]    = NULL;
         }
         bs->lmps[bs->ld]  = bs->ld;
@@ -581,10 +622,8 @@ static void return_normal_forms_to_basis(
     }
 
     /* timings */
-    ct1 = cputime();
-    rt1 = realtime();
-    st->convert_ctime +=  ct1 - ct0;
-    st->convert_rtime +=  rt1 - rt0;
+    st->convert_ctime +=  cputime() - ct;
+    st->convert_rtime +=  realtime() - rt;
 }
 
 static void convert_sparse_matrix_rows_to_basis_elements(
@@ -593,15 +632,15 @@ static void convert_sparse_matrix_rows_to_basis_elements(
         bs_t *bs,
         ht_t *bht,
         const ht_t * const sht,
-        const hi_t * const hcm,
-        stat_t *st
+        md_t *st
         )
 {
     len_t i, j, k;
     deg_t deg;
 
-    const len_t bl  = bs->ld;
-    const len_t np  = mat->np;
+    const len_t bl = bs->ld;
+    const len_t np = mat->np;
+    hi_t *hcm      = st->hcm;
 
     /* timings */
     double ct0, ct1, rt0, rt1;
@@ -612,7 +651,9 @@ static void convert_sparse_matrix_rows_to_basis_elements(
     check_enlarge_basis(bs, mat->np, st);
 
     hm_t **rows = mat->tr;
-
+    switch_hcm_data_to_basis_hash_table(hcm, bht, mat, sht);
+#pragma omp parallel for num_threads(st->nthrds) \
+    private(i, j, k)
     for (k = 0; k < np; ++k) {
         /* We first insert the highest leading monomial element to the basis
          * for a better Gebauer-Moeller application when updating the pair
@@ -622,7 +663,10 @@ static void convert_sparse_matrix_rows_to_basis_elements(
         } else {
             i = k;
         }
-        insert_in_basis_hash_table_pivots(rows[i], bht, sht, hcm, st);
+        const len_t len = rows[i][LENGTH]+OFFSET;
+        for (j = OFFSET; j < len; ++j) {
+            rows[i][j] = hcm[rows[i][j]];
+        }
         deg = bht->hd[rows[i][OFFSET]].deg;
         if (st->nev > 0) {
             const len_t len = rows[i][LENGTH]+OFFSET;
@@ -709,8 +753,7 @@ static void convert_sparse_matrix_rows_to_basis_elements_use_sht(
         mat_t *mat,
         bs_t *bs,
         const ht_t * const sht,
-        const hi_t * const hcm,
-        stat_t *st
+        md_t *st
         )
 {
     len_t i, j, k;
@@ -719,6 +762,7 @@ static void convert_sparse_matrix_rows_to_basis_elements_use_sht(
 
     const len_t bl  = bs->ld;
     const len_t np  = mat->np;
+    const hi_t * const hcm = st->hcm;
 
     /* timings */
     double ct0, ct1, rt0, rt1;
@@ -779,12 +823,12 @@ static void convert_sparse_matrix_rows_to_basis_elements_use_sht(
         }
 #if 0
         if (st->ff_bits == 32) {
-            printf("new element (%u): length %u | degree %d | ", bl+i, bs->hm[bl+i][LENGTH], bs->hm[bl+i][DEG]);
+            printf("new element (%u): length %u | degree %d | ", bl+k, bs->hm[bl+k][LENGTH], bs->hm[bl+k][DEG]);
             int kk = 0;
-            /* for (int kk=0; kk<bs->hm[bl+i][LENGTH]; ++kk) { */
-            printf("%u | ", bs->cf_32[bl+i][kk]);
+            /* for (int kk=0; kk<bs->hm[bl+k][LENGTH]; ++kk) { */
+            printf("%u | ", bs->cf_32[bl+k][kk]);
             for (int jj=0; jj < sht->evl; ++jj) {
-                printf("%u ", sht->ev[bs->hm[bl+i][OFFSET+kk]][jj]);
+                printf("%u ", sht->ev[bs->hm[bl+k][OFFSET+kk]][jj]);
             }
             /* printf(" || ");
              * } */

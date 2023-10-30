@@ -20,66 +20,46 @@
 
 static inline void store_exponent(const char *term, data_gens_ff_t *gens, int32_t pos)
 {
-  nvars_t k;
-  /* /\** first we have to fill the buffers with zeroes *\/ */
-  /* memset(ht->exp + (ht->load * ht->nv), 0, ht->nv * sizeof(exp_t)); */
-  const char mult_splicer = '*';
-  const char exp_splicer  = '^';
-  exp_t exp = 0;
-  //  deg_t deg = 0;
+    len_t i, j, k;
 
-  for (k=0; k<gens->nvars; ++k) {
-    exp = 0;
-    char *var = strstr(term, gens->vnames[k]);
-    //    char *var = gens->vnames[k];
-    if (var != NULL) {
-      var   = strtok(var, "\n");
-      var   = strtok(var, ",");
-      /** if the next variable follows directly => exp = 1 */
-      if (strncmp(&mult_splicer, var+strlen(gens->vnames[k]), 1) == 0) {
-        exp = 1;
-      } else {
-        /** if there follows an exp symbol "^" */
-        if (strncmp(&exp_splicer, var+strlen(gens->vnames[k]), 1) == 0) {
-          char exp_str[1000];
-          char *mult_pos;
-          mult_pos  = strchr(var, mult_splicer);
-          if (mult_pos != NULL) {
-            size_t exp_len = (size_t)(mult_pos - (var+strlen(gens->vnames[k])) - 1);
-            memcpy(exp_str, var+strlen(gens->vnames[k])+1, exp_len);
-            exp_str[exp_len] = '\0';
-            //            exp = (exp_s)strtol(exp_str, NULL, 10);
-            exp = strtol(exp_str, NULL, 10);
-          } else { /** no further variables in this term */
-            size_t exp_len = (size_t)((var+strlen(var)) + 1 - (var+strlen(gens->vnames[k])) - 1);
-            memcpy(exp_str, var+strlen(gens->vnames[k])+1, exp_len);
-            //            exp = (exp_s)strtol(exp_str, NULL, 10);
-            exp = strtol(exp_str, NULL, 10);
-            exp_str[exp_len] = '\0';
-          }
+    len_t op = 0;
+    char *var = NULL;
+    char *ev  = NULL;
+    for (i = 0; i < strlen(term)+1; ++i) {
+        if (term[i] == '*' || i == strlen(term)) {
+            j = op;
+            while (j < i && term[j] != '^') {
+                ++j;
+            }
+            if (term[j-1] == ',') {
+                --j;
+            }
+            while(term[op] == ' ' || term[op] == '+' || term[op] == '-') {
+                ++op;
+            }
+            var = realloc(var, sizeof(char)*(j-op+1));
+            memcpy(var, term+op, j-op);
+            var[j-op] = '\0';
+            if (term[j] == '^') {
+                ev = realloc(ev, (sizeof(char)*(i-j)));
+                ev = memcpy(ev, term+(j+1), i-j-1);
+                ev[i-j-1] = '\0';
+            } else {
+                ev = realloc(ev, (sizeof(char)*2));
+                ev[0] = '1';
+                ev[1] ='\0';
+            }
+            for (k = 0; k < gens->nvars; ++k) {
+                if (strcmp(gens->vnames[k], var) == 0) {
+                    ((gens->exps) + pos)[k] = strtol(ev, NULL, 10);
+                    break;
+                }
+            }
+            op = i+1;
         }
-        else { /** we are at the last variable with exp = 1 */
-          if (strcmp(gens->vnames[k], var) == 0)
-            exp = 1;
-          else
-            continue;
-        }
-      }
     }
-
-    /* /\** if we use graded reverse lexicographical order (basis->ord = 0) or */
-    /*   * lexicographic order (basis->ord = 1)  we store */
-    /*   * the exponents in reverse order so that we can use memcmp to sort the terms */
-    /*   * efficiently later on *\/ */
-    /* if (basis->ord == 0) */
-    /*   deg +=  ht->exp[(ht->load * ht->nv) + ht->nv-1-k] = exp; */
-    /* else */
-    /*   deg +=  ht->exp[(ht->load * ht->nv) + k] = exp; */
-
-    //    ((gens->exps) + pos)[gens->nvars-k-1] = exp;
-    ((gens->exps) + pos)[k] = exp;
-    /* ht->deg[ht->load] = deg; */
-  }
+    free(var);
+    free(ev);
 }
 
 
@@ -173,15 +153,17 @@ static inline int32_t display_monomial_full(FILE *file, const int nv,
   }
   return b;
 }
+
 static void print_msolve_polynomials_ff(
         FILE *file,
         const bi_t from,
         const bi_t to,
         const bs_t * const bs,
         const ht_t * const ht,
-        const stat_t *st,
+        const md_t *st,
         char **vnames,
-        const int lead_ideal_only
+        const int lead_ideal_only,
+        const int is_nf
         )
 {
     len_t i, j, k, idx;
@@ -194,13 +176,13 @@ static void print_msolve_polynomials_ff(
     const len_t evl = ht->evl;
 
     /* state context if full basis is printed */
-    if (from == 0 && to == bs->lml) {
+    if (is_nf == 0 && from == 0 && to == bs->lml) {
         if (lead_ideal_only != 0) {
             fprintf(file, "#Lead ideal for input in characteristic ");
         } else {
             fprintf(file, "#Reduced Groebner basis for input in characteristic ");
         }
-        fprintf(file, "%u\n", st->fc);
+        fprintf(file, "%u\n", st->gfc);
         fprintf(file, "#for variable order ");
         for (i = 0; i < nv-1; ++i) {
             fprintf(file, "%s, ", vnames[i]);
@@ -209,7 +191,6 @@ static void print_msolve_polynomials_ff(
         fprintf(file, "#w.r.t. grevlex monomial ordering\n");
         fprintf(file, "#consisting of %u elements:\n", bs->lml);
     }
-
 
     int *evi    =   (int *)malloc((unsigned long)ht->nv * sizeof(int));
     if (ebl == 0) {
@@ -316,12 +297,37 @@ static void print_msolve_polynomials_ff(
     free(evi);
 }
 
+static void print_ff_nf_data(
+        const char *fn,
+        const char *mode,
+        const bi_t from,
+        const bi_t to,
+        const bs_t *bs,
+        const ht_t *ht,
+        const md_t *st,
+        const data_gens_ff_t *gens,
+        const int32_t print_gb)
+{
+    if (print_gb > 0) {
+        if(fn != NULL){
+            FILE *ofile = fopen(fn, mode);
+            print_msolve_polynomials_ff(ofile, from, to, bs, ht,
+                    st, gens->vnames, 2-print_gb, 1);
+            fclose(ofile);
+        }
+        else{
+            print_msolve_polynomials_ff(stdout, from, to, bs, ht,
+                    st, gens->vnames, 2-print_gb, 1);
+        }
+    }
+}
+
 static void print_ff_basis_data(
         const char *fn,
         const char *mode,
         const bs_t *bs,
         const ht_t *ht,
-        const stat_t *st,
+        const md_t *st,
         const data_gens_ff_t *gens,
         const int32_t print_gb)
 {
@@ -329,12 +335,12 @@ static void print_ff_basis_data(
         if(fn != NULL){
             FILE *ofile = fopen(fn, mode);
             print_msolve_polynomials_ff(ofile, 0, bs->lml, bs, ht,
-                    st, gens->vnames, 2-print_gb);
+                    st, gens->vnames, 2-print_gb, 0);
             fclose(ofile);
         }
         else{
             print_msolve_polynomials_ff(stdout, 0, bs->lml, bs, ht,
-                    st, gens->vnames, 2-print_gb);
+                    st, gens->vnames, 2-print_gb, 0);
         }
     }
 }
@@ -556,6 +562,7 @@ static void get_nterms_and_all_nterms(FILE *fh, char **linep,
         i++;
     }
     *linep  = line;
+    gens->nterms = *all_nterms;
 }
 
 
@@ -1086,7 +1093,7 @@ static inline void get_single_param_from_file_bin(FILE *file, mpz_param_t param)
 
     mpz_init(param->cfs[i]);
     if(!mpz_inp_raw(param->cfs[i], file)){
-      fprintf(stderr, "An error occured when reading file (lcm coord i=%d)\n", i);
+      fprintf(stderr, "An error occurred when reading file (lcm coord i=%d)\n", i);
       exit(1);
     }
 
@@ -1115,7 +1122,7 @@ static inline void get_single_param_from_file(FILE *file, mpz_param_t param){
     mpz_init(param->cfs[i]);
 
     if(!mpz_inp_str(param->cfs[i], file, 10)){
-      fprintf(stderr, "An error occured when reading file (i=%d)\n", i);
+      fprintf(stderr, "An error occurred when reading file (i=%d)\n", i);
       exit(1);
     }
 

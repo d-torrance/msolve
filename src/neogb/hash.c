@@ -43,7 +43,7 @@ static val_t pseudo_random_number_generator(
 }
 
 ht_t *initialize_basis_hash_table(
-    stat_t *st
+    md_t *st
     )
 {
     len_t i;
@@ -129,7 +129,7 @@ ht_t *initialize_basis_hash_table(
 
 ht_t *copy_hash_table(
     const ht_t *bht,
-    const stat_t *st
+    const md_t *st
     )
 {
     hl_t j;
@@ -182,8 +182,8 @@ ht_t *copy_hash_table(
 
 
 ht_t *initialize_secondary_hash_table(
-    const ht_t *bht,
-    const stat_t *st
+    const ht_t * const bht,
+    const md_t * const md
     )
 {
     hl_t j;
@@ -194,7 +194,7 @@ ht_t *initialize_secondary_hash_table(
     ht->ebl   = bht->ebl;
 
     /* generate map */
-    int32_t min = 3 > st->init_hts-5 ? 3 : st->init_hts-5;
+    int32_t min = 3 > md->init_hts-5 ? 3 : md->init_hts-5;
     ht->hsz   = (hl_t)pow(2, min);
     ht->esz   = ht->hsz / 2;
     ht->hmap  = calloc(ht->hsz, sizeof(hi_t));
@@ -1036,19 +1036,39 @@ restart:
     psl->ld = m;
 }
 
+static inline void switch_hcm_data_to_basis_hash_table(
+    hi_t *hcm,
+    ht_t *bht,
+    const mat_t *mat,
+    const ht_t * const sht
+    )
+{
+    const len_t start = mat->ncl;
+    const len_t end   = mat->nc;
+
+    while (bht->esz - bht->eld < mat->ncr) {
+        enlarge_hash_table(bht);
+    }
+
+    for (len_t i = start; i < end; ++i) {
+        hcm[i] = check_insert_in_hash_table(
+                sht->ev[hcm[i]], sht->hd[hcm[i]].val, bht);
+    }
+}
+
 static inline void insert_in_basis_hash_table_pivots(
     hm_t *row,
     ht_t *bht,
     const ht_t * const sht,
     const hi_t * const hcm,
-    const stat_t * const st
+    const md_t * const st
     )
 {
     len_t l;
 
-    while (bht->esz - bht->eld < row[LENGTH]) {
+    /* while (bht->esz - bht->eld < row[LENGTH]) {
         enlarge_hash_table(bht);
-    }
+    } */
 
     const len_t len = row[LENGTH]+OFFSET;
     const len_t evl = bht->evl;
@@ -1058,10 +1078,10 @@ static inline void insert_in_basis_hash_table_pivots(
     
     exp_t *evt  = (exp_t *)malloc(
         (unsigned long)(st->nthrds * evl) * sizeof(exp_t));
-#if PARALLEL_HASHING
+/* #if PARALLEL_HASHING
 #pragma omp parallel for num_threads(st->nthrds) \
     private(l)
-#endif
+#endif */
     for (l = OFFSET; l < len; ++l) {
         exp_t *evtl = evt + (omp_get_thread_num() * evl);
         memcpy(evtl, evs[hcm[row[l]]],
@@ -1074,6 +1094,7 @@ static inline void insert_in_basis_hash_table_pivots(
         row[l] = insert_in_hash_table(evtl, bht);
 #endif
     }
+    free(evt);
 }
 
 static inline void insert_multiplied_poly_in_hash_table(
@@ -1200,7 +1221,7 @@ static void reset_hash_table(
     ht_t *ht,
     bs_t *bs,
     ps_t *psl,
-    stat_t *st
+    md_t *st
     )
 {
     /* timings */

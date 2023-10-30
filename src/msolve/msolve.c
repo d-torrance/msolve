@@ -140,10 +140,23 @@ static inline void mpz_param_out_str(FILE *file, const data_gens_ff_t *gens,
 
   fprintf(file, "[");
   if(gens->rand_linear){
+    int32_t sum = 0;
+    if(gens->field_char == 0){
+      for(int i = 0; i < param->nvars; i++){
+        sum += abs(gens->random_linear_form[i]) * param->nvars - 1;
+      }
+    }
     for(int i = 0; i < param->nvars - 1; i++){
       fprintf(file, "%d,", gens->random_linear_form[i]);
+      if(gens->field_char == 0){
+        fprintf(file, "/%d", sum);
+      }
+      fprintf(file, ",");
     }
     fprintf(file, "%d", gens->random_linear_form[param->nvars-1]);
+    if(gens->field_char == 0){
+      fprintf(file, "/%d", sum);
+    }
   }
   else{
     if (gens->linear_form_base_coef > 0) {
@@ -306,9 +319,11 @@ static inline void free_data_gens(data_gens_ff_t *gens){
     free(gens->vnames[i]);
   }
   free(gens->vnames);
-  for(long i = 0; i < 2*gens->nterms; i++){
-    mpz_clear(*(gens->mpz_cfs[i]));
-    free(gens->mpz_cfs[i]);
+  if (gens->field_char == 0) {
+      for(long i = 0; i < 2*gens->nterms; i++){
+          mpz_clear(*(gens->mpz_cfs[i]));
+          free(gens->mpz_cfs[i]);
+      }
   }
   free(gens->mpz_cfs);
   free(gens->lens);
@@ -460,11 +475,6 @@ static int undo_variable_order_change(
             len +=  gens->lens[i]*nvars;
         }
     }
-    /* printf("undone:  ");
-     * for(int i = 0; i < nvars-1; i++){
-     *     fprintf(stdout, "%s, ", gens->vnames[i]);
-     * }
-     * fprintf(stdout, "%s\n", gens->vnames[nvars-1]); */
     /* all cyclic changes already done, stop here, try to add
      * a linear form with additional variable afterwards */
     gens->change_var_order++;
@@ -625,7 +635,6 @@ static int add_random_linear_form_to_input_system(
 {
 
     int64_t i, j;
-    int32_t k;
     int32_t nvars_old, nvars_new;
     int64_t len_old = 0, len_new;
 
@@ -698,7 +707,6 @@ static int add_random_linear_form_to_input_system(
     }
     gens->linear_form_base_coef++;
     /* const int32_t bcf = gens->linear_form_base_coef; */
-    k = 1;
     if (info_level > 0) {
         printf("\nAdding a linear form with an extra variable ");
         printf("(lowest w.r.t. monomial order)\n");
@@ -717,23 +725,27 @@ static int add_random_linear_form_to_input_system(
             gens->random_linear_form[j] = ((int8_t)(rand()) % gens->field_char);
        }
         gens->cfs[i]  = gens->random_linear_form[j];
-        k++;
         j++;
       }
     }
     else {
       int j = 0;
+      int32_t sum = 0;
       for (i = 2*len_old; i < 2*len_new; i += 2) {
         gens->random_linear_form[j] = ((int8_t)(rand()));
 
         while(gens->random_linear_form[j] == 0){
             gens->random_linear_form[j] = ((int8_t)(rand()));
         }
-
+        if(i < 2*len_new -1){
+          sum += nvars_old * abs(gens->random_linear_form[j]);
+        }
+        else{
+          gens->random_linear_form[j] = sum;
+        }
         mpz_set_si(*(gens->mpz_cfs[i]), gens->random_linear_form[j]);
         mpz_set_ui(*(gens->mpz_cfs[i+1]), 1);
 
-        k++;
         j++;
       }
     }
@@ -797,7 +809,6 @@ static inline void initialize_mpz_param(mpz_param_t param, param_t *bparam){
     for(long i = 0; i < param->nvars - 1; i++){
 
       mpz_upoly_init(param->coords[i], MAX(1,bparam->elim->alloc - 1));
-      /* param->coords[i]->length = bparam->coords[i]->length; */
       param->coords[i]->length = bparam->elim->length - 1;
 
     }
@@ -810,6 +821,7 @@ static inline void initialize_mpz_param(mpz_param_t param, param_t *bparam){
   if(param->cfs != NULL){
     for(int i = 0; i < param->nvars - 1; i++){
       mpz_init(param->cfs[i]);
+      mpz_set_ui(param->cfs[i], 1);
     }
   }
   else{
@@ -932,579 +944,6 @@ check_and_set_vars_squared_in_monomial_basis(uint64_t *squvars,
     }
   }
 }
-
-
-
-/**
-
-On fait un calcul modulaire.
-donc ici on suppose gens->field_char >0
-
-Si la dimension est 0 et que l'on est en position generique
-on renvoie 0 (et une param.).
-
-Si la dimension est > 0, on renvoie un nombre positif (ce sera la dimension a
-terme) et on a la BG.
-
-Si il y a eu un pb (pas de position generique ou echec quelconque) on renvoie -1.
- **/
-
-int msolve_ff(param_t **bparam,
-              //int32_t *bld, int32_t **blen, int32_t **bexp, void **bcf,
-              data_gens_ff_t *gens,
-              int32_t initial_hts,
-              int32_t nr_threads,
-              int32_t max_pairs,
-              int32_t elim_block_len,
-              int32_t update_ht,
-              int32_t la_option,
-              int32_t info_level,
-              files_gb *files){
-
-  int32_t *bld = malloc(sizeof(int32_t)*gens->ngens);
-  int32_t **blen = malloc(sizeof(int32_t *));
-  int32_t **bexp = malloc(sizeof(int32_t *));
-  void **bcf = malloc(sizeof(void *));
-
-
-  if(info_level > 0){
-    fprintf(stderr, "Starts F4 with prime = %d\n", gens->field_char);
-  }
-  long nlins = 0;
-  uint64_t *linvars = calloc(gens->nvars, sizeof(uint64_t));
-  uint32_t **lineqs_ptr = malloc(sizeof(uint32_t *));
-
-  int64_t nb = f4_julia(&malloc, bld, blen, bexp, bcf,
-                        gens->lens, gens->exps, (void *)gens->cfs, gens->field_char,
-                        0, //mon_order,
-                        elim_block_len,
-                        gens->nvars, gens->ngens, initial_hts,
-                        nr_threads, max_pairs, update_ht, la_option,
-                        1, //reduce_gb
-                        0, //generate_pbm
-                        info_level);
-
-  if(nb==0){
-    fprintf(stderr, "Something went wrong during the computation\n");
-    return -1;
-  }
-
-  int32_t *bcf_ff = (int32_t *)(*bcf);
-
-#if DEBUGGB > 0
-  if(files->out_file != NULL){
-    char fn[200];
-    char spr[100];
-    sprintf(spr, "%d", gens->field_char);
-    strcpy(fn, "/tmp/sys.basis.");
-    strcat(fn,spr);
-    FILE *ofilebs = fopen(fn, "w");
-    display_basis_maple(ofilebs, bld, blen, bexp, bcf_ff, gens);
-    fclose(ofilebs);
-  }
-  else{
-    display_basis_maple(stdout, bld, blen, bexp, bcf_ff, gens);
-  }
-#endif
-
-#if DEBUGGB>0
-  if(files->out_file != NULL){
-    char fn[200];
-    char spr[100];
-    sprintf(spr, "%d", gens->field_char);
-    strcpy(fn, "/tmp/sys_lead_monomial.");
-    strcat(fn,spr);
-    FILE *ofilelm = fopen(fn, "w");
-    display_lead_monomials_from_gb(ofilelm, bld, blen, bexp, bcf_ff, gens);
-    fclose(ofilelm);
-  }
-  else{
-    display_lead_monomials_from_gb(stdout, bld, blen, bexp, bcf_ff, gens);
-    fprintf(stdout, "\n");
-  }
-#endif
-
-  double st_lm = realtime();
-  int32_t *bexp_lm = get_lead_monomials(bld, blen, bexp, gens);
-  check_and_set_linear_poly_non_hashed(&nlins, linvars, lineqs_ptr,
-                                       bld, bexp_lm,
-                                       blen, bexp, bcf_ff, gens->nvars);
-
-  if(has_dimension_zero(bld[0], gens->nvars, bexp_lm)){
-    if(info_level){
-      fprintf(stderr, "The ideal has dimension zero\n");
-    }
-    long dquot = 0;
-    int32_t *lmb = monomial_basis(bld[0], gens->nvars, bexp_lm, &dquot);
-
-    if(info_level){
-      fprintf(stderr, "Dimension of quotient ring = %ld\n", dquot);
-    }
-#if DEBUGGB>0
-    char fn[200];
-    char spr[100];
-    sprintf(spr, "%d", gens->field_char);
-    strcpy(fn, "/tmp/sys.mon_basis.");
-    strcat(fn,spr);
-    FILE *ofile = fopen(fn, "w");
-    display_monomials_from_array_maple(ofile, dquot, lmb, gens);
-    fclose(ofile);
-#endif
-
-    if(dquot==1){
-#if DEBUGGB>0
-      if(files->out_file!=NULL){
-        FILE *ofile = fopen(files->out_file, "w");
-        display_basis_maple(ofile, bld, blen, bexp, bcf_ff, gens);
-        fclose(ofile);
-       }
-      else{
-        display_basis_maple(stdout, bld, blen, bexp, bcf_ff, gens);
-      }
-#endif
-      free(bld);
-      free(*blen);
-      free(blen);
-      free(*bexp);
-      free(bexp);
-      free(*bcf);
-      free(bcf);
-      free(linvars);
-      if(nlins){
-        free(lineqs_ptr[0]);
-      }
-      free(lineqs_ptr);
-      return 0;
-    }
-    if(info_level > 1){
-      fprintf(stderr, "Build monomial basis: %.2f sec.\n", realtime()-st_lm);
-    }
-    sp_matfglm_t *matrix = build_matrixn(lmb, dquot, bld[0], blen, bexp, bcf_ff,
-                                         bexp_lm, gens->nvars, gens->field_char);
-
-    if(matrix==NULL){
-      /* fprintf(stderr, "Problem when building the matrix multiplication\n");
-       * fprintf(stderr, "Some data should be free-ed\n"); */
-      free(bld);
-      free(*blen);
-      free(blen);
-      free(*bexp);
-      free(bexp);
-      free(*bcf);
-      free(bcf);
-      free(bexp_lm);
-      free(lmb);
-      free(linvars);
-      if(nlins){
-        free(lineqs_ptr[0]);
-      }
-      free(lineqs_ptr);
-      if (dquot > 0) {
-          return 1;
-      } else {
-        return -1;
-      }
-    }
-#if DEBUGGB > 0
-    display_fglm_matrix(stdout, matrix);
-#endif
-    //display_fglm_matrix(stderr, matrix);
-
-    /* timings */
-    double ct0, ct1, rt0, rt1;
-    ct0 = cputime();
-    rt0 = realtime();
-
-    if(info_level > 1){
-      fprintf(stderr, "Starts FGLM\n");
-    }
-    uint64_t *squvars = calloc(gens->nvars-1, sizeof(uint64_t));
-    check_and_set_vars_squared_in_monomial_basis(squvars, lmb,
-						 dquot, gens->nvars);
-    *bparam = nmod_fglm_compute(matrix, gens->field_char,
-                                gens->nvars, nlins, linvars, lineqs_ptr[0],
-                                squvars, info_level);
-
-#if DEBUGGB>0
-    if(files->out_file != NULL){
-      FILE *ofile = fopen(files->out_file, "w");
-      display_fglm_param_maple(ofile, *bparam);
-      fclose(ofile);
-    }
-    else{
-      display_fglm_param_maple(stdout, *bparam);
-    }
-#endif
-
-    free_sp_mat_fglm(matrix);
-    free(bexp_lm);
-    free(lmb);
-
-    free(bld);
-    free(*blen);
-    free(blen);
-    free(*bexp);
-    free(bexp);
-    free(*bcf);
-    free(bcf);
-    free(linvars);
-    if(nlins){
-      free(lineqs_ptr[0]);
-    }
-    free(lineqs_ptr);
-    free(squvars);
-
-    /* timings */
-    ct1 = cputime();
-    rt1 = realtime();
-    if (info_level) {
-      fprintf(stderr, "-------------------------------------------------\
-----------------------------------------\n");
-      fprintf(stderr, "FGLM TIMING %13.2f sec (REAL) / %5.2f sec (CPU)\n",
-            rt1-rt0, ct1-ct0);
-      fprintf(stderr, "-------------------------------------------------\
-----------------------------------------\n");
-      fprintf(stderr, "Done (matrix is free-ed).\n");
-    }
-
-    return 0;
-  }
-  else{
-    fprintf(stderr, "The ideal is not zero-dimensional\n");
-
-    free(bld);
-    free(*blen);
-    free(blen);
-    free(*bexp);
-    free(bexp);
-    free(*bcf);
-    free(bcf);
-    free(linvars);
-    if(nlins){
-      free(lineqs_ptr[0]);
-    }
-    free(lineqs_ptr);
-
-    return 2;
-#if DEBUGGB>0
-    if(files->out_file != NULL){
-      FILE *ofile = fopen(files->out_file, "w");
-      display_basis_maple(ofile, bld, blen, bexp, bcf_ff, gens);
-      fclose(ofile);
-    }
-    else{
-      display_basis_maple(stdout, bld, blen, bexp, bcf_ff, gens);
-    }
-#endif
-  }
-
-  free(bld);
-  free(*blen);
-  free(blen);
-  free(*bexp);
-  free(bexp);
-  free(*bcf);
-  free(bcf);
-
-  return -1;
-}
-
-
-
-/**
-
-Modular computation:
-does as msolve_ff but with bld, blen, etc already allocated.
-
-returns 0 when the ideal has dim. 0 and coordinates are generic enough to obtain the parametrization.
-returns 1 in case of failure.
-returns 2 when the dimension is > 0
-
-Small hack here: returns -1 when the dimension of the quotient is 1.
-**/
-
-int msolve_ff_alloc(param_t **bparam,
-                    int32_t *bld, int32_t **blen, int32_t **bexp, void **bcf,
-                    data_gens_ff_t *gens,
-                    int32_t initial_hts,
-                    int32_t nr_threads,
-                    int32_t max_pairs,
-                    int32_t elim_block_len,
-                    int32_t update_ht,
-                    int32_t la_option,
-                    int32_t use_signatures,
-                    int32_t info_level,
-                    int32_t print_gb,
-                    files_gb *files){
-
-
-    if(info_level){
-        fprintf(stderr, "Starts F4 with prime = %d\n", gens->field_char);
-    }
-    long nlins = 0;
-    uint64_t *linvars = calloc(gens->nvars, sizeof(uint64_t));
-    uint32_t **lineqs_ptr = malloc(sizeof(uint32_t *));
-
-    /* int64_t nb = f4_julia(bld, blen, bexp, bcf,
-     *                       gens->lens, gens->exps, (void *)gens->cfs, gens->field_char,
-     *                       0, //mon_order,
-     *                       gens->nvars, gens->ngens, initial_hts,
-     *                       nr_threads, max_pairs, update_ht, la_option,
-     *                       1, //reduce_gb
-     *                       0, //generate_pbm
-     *                       info_level); */
-    /* timings */
-    double ct0, ct1, rt0, rt1;
-    ct0 = cputime();
-    rt0 = realtime();
-
-    /* data structures for basis, hash table and statistics */
-    bs_t *bs    = NULL;
-    ht_t *bht   = NULL;
-    stat_t *st  = NULL;
-
-    int success = 0;
-
-    success = initialize_gba_input_data(&bs, &bht, &st,
-            gens->lens, gens->exps, (void *)gens->cfs,
-            gens->field_char, 0, elim_block_len, gens->nvars,
-            gens->ngens, 0 /* # normal forms */, initial_hts,
-            nr_threads, max_pairs, update_ht, la_option,
-            use_signatures, 1, 0, info_level);
-
-    if (!success) {
-        printf("Bad input data, stopped computation.\n");
-        exit(1);
-    }
-
-    success = core_gba(&bs, &bht, &st);
-
-    if (!success) {
-        printf("Problem with F4, stopped computation.\n");
-        exit(1);
-    }
-    int64_t nb  = export_results_from_gba(bld, blen, bexp,
-            bcf, &malloc, &bs, &bht, &st);
-
-    /* timings */
-    ct1 = cputime();
-    rt1 = realtime();
-    st->overall_ctime = ct1 - ct0;
-    st->overall_rtime = rt1 - rt0;
-
-    if (st->info_level > 1) {
-        print_final_statistics(stderr, st);
-    }
-
-    if(nb==0){
-        fprintf(stderr, "Something went wrong during the computation\n");
-        return -1;
-    }
-
-    int32_t *bcf_ff = (int32_t *)(*bcf);
-
-#if DEBUGGB > 0
-    if(files->out_file != NULL){
-        char fn[200];
-        char spr[100];
-        sprintf(spr, "%d", gens->field_char);
-        strcpy(fn, "/tmp/sys.basis.");
-        strcat(fn,spr);
-        FILE *ofilebs = fopen(fn, "w");
-        display_basis_maple(ofilebs, bld, blen, bexp, bcf_ff, gens);
-        fclose(ofilebs);
-    }
-    else{
-        display_basis_maple(stdout, bld, blen, bexp, bcf_ff, gens);
-    }
-#endif
-
-#if DEBUGGB>0
-    if(files->out_file != NULL){
-        char fn[200];
-        char spr[100];
-        sprintf(spr, "%d", gens->field_char);
-        strcpy(fn, "/tmp/sys_lead_monomial.");
-        strcat(fn,spr);
-        FILE *ofilelm = fopen(fn, "w");
-        display_lead_monomials_from_gb(ofilelm, bld, blen, bexp, bcf_ff, gens);
-        fclose(ofilelm);
-    }
-    else{
-        display_lead_monomials_from_gb(stdout, bld, blen, bexp, bcf_ff, gens);
-        fprintf(stdout, "\n");
-    }
-#endif
-
-    double st_lm = realtime();
-    int32_t *bexp_lm = get_lead_monomials(bld, blen, bexp, gens);
-    check_and_set_linear_poly_non_hashed(&nlins, linvars, lineqs_ptr,
-            bld, bexp_lm,
-            blen, bexp, bcf_ff, gens->nvars);
-
-    if(has_dimension_zero(bld[0], gens->nvars, bexp_lm)){
-        if(info_level > 1){
-            fprintf(stderr, "The ideal has dimension zero\n");
-        }
-        long dquot = 0;
-        int32_t *lmb = monomial_basis(bld[0], gens->nvars, bexp_lm, &dquot);
-
-        if(info_level){
-            fprintf(stderr, "Dimension of quotient ring = %ld\n", dquot);
-        }
-        if(dquot==0){
-            fprintf(stderr, "\nGrobner basis is [1]\n");
-
-            free(linvars);
-            /* free(lineqs_ptr[0]); */
-            free(lineqs_ptr);
-            return 3;
-        }
-#if DEBUGGB>0
-        char fn[200];
-        char spr[100];
-        sprintf(spr, "%d", gens->field_char);
-        strcpy(fn, "/tmp/sys.mon_basis.");
-        strcat(fn,spr);
-        FILE *ofile = fopen(fn, "w");
-        display_monomials_from_array_maple(ofile, dquot, lmb, gens);
-        fclose(ofile);
-#endif
-
-        if(dquot==1){
-            print_ff_basis_data(
-                    files->out_file, "a", bs, bht, st, gens, print_gb);
-            return -1;
-        }
-        if(info_level > 1){
-            fprintf(stderr, "Build monomial basis: %.2f sec.\n", realtime()-st_lm);
-        }
-        sp_matfglm_t *matrix = build_matrixn(lmb, dquot, bld[0], blen, bexp, bcf_ff,
-                bexp_lm, gens->nvars, gens->field_char);
-
-        if(matrix==NULL){
-            /* fprintf(stderr, "Problem when building the matrix multiplication\n");
-             * fprintf(stderr, "Some data should be free-ed\n"); */
-            free(bexp_lm);
-            free(lmb);
-            if (dquot > 0) {
-                return 1;
-            } else {
-                print_ff_basis_data(
-                        files->out_file, "a", bs, bht, st, gens, print_gb);
-                return -1;
-            }
-        }
-#if DEBUGGB > 0
-        display_fglm_matrix(stdout, matrix);
-#endif
-
-        /* timings */
-        double rt0, rt1;
-        rt0 = realtime();
-
-        if(info_level > 1){
-            fprintf(stderr, "Starts FGLM\n");
-        }
-        uint64_t *squvars = calloc(gens->nvars-1, sizeof(uint64_t));
-        check_and_set_vars_squared_in_monomial_basis(squvars, lmb,
-                dquot, gens->nvars);
-        *bparam = nmod_fglm_compute(matrix, gens->field_char, gens->nvars,
-                nlins, linvars, lineqs_ptr[0],
-                squvars, info_level);
-#if DEBUGGB>0
-        if(files->out_file != NULL){
-            FILE *ofile = fopen(files->out_file, "w");
-            display_fglm_param_maple(ofile, *bparam);
-            fclose(ofile);
-        }
-        else{
-            display_fglm_param_maple(stdout, *bparam);
-        }
-#endif
-
-        free_sp_mat_fglm(matrix);
-        free(bexp_lm);
-        free(lmb);
-        free(linvars);
-        if(nlins){
-            free(lineqs_ptr[0]);
-        }
-        free(lineqs_ptr);
-        free(squvars);
-
-        /* timings */
-        rt1 = realtime();
-        if (info_level > 0) {
-            fprintf(stderr, "FGLM time (elapsed) %.2f sec\n",
-                    rt1-rt0);
-        }
-        print_ff_basis_data(
-                files->out_file, "a", bs, bht, st, gens, print_gb);
-        if(bparam==NULL){
-            return 1;
-        }
-        return 0;
-    }
-    /* else{ */
-    /*     print_ff_basis_data( */
-    /*             files->out_file, "a", bs, bht, st, gens, print_gb); */
-    /*     fprintf(stderr, "The ideal is not zero-dimensional\n"); */
-
-    /*     return 1; */
-    /* } */
-    print_ff_basis_data(
-            files->out_file, "a", bs, bht, st, gens, print_gb);
-    free(linvars);
-    if(nlins){
-        free(lineqs_ptr[0]);
-    }
-    free(lineqs_ptr);
-
-    if(info_level){
-        fprintf(stderr, "Positive dimensional Grobner basis\n");
-    }
-    return 2;
-}
-
-
-/**
-
-   Renvoie 0 si tout s'est bien passe (ideal de dim 0 en position generique)
-
- **/
-
-int modular_run_msolve(param_t **bparam,
-                       //                       int32_t *bld, int32_t **blen, int32_t **bexp, void **bcf,
-                       data_gens_ff_t *gens,
-                       int32_t initial_hts,
-                       int32_t nr_threads,
-                       int32_t max_pairs,
-                       int32_t elim_block_len,
-                       int32_t update_ht,
-                       int32_t la_option,
-                       int32_t info_level,
-                       files_gb *files,
-                       int32_t prime){
-  long nterms = 0;
-  for(long i = 0; i < gens->ngens; i++){
-    nterms += gens->lens[i];
-  }
-
-  reduce_generators((gens->mpz_cfs), nterms, gens->cfs, prime);
-
-  gens->field_char = prime;
-
-  int b = msolve_ff(bparam,
-                    //bld, blen, bexp, bcf,
-                    gens,
-                    initial_hts, nr_threads, max_pairs, elim_block_len,
-                    update_ht, la_option, info_level, files);
-  gens->field_char = 0;
-
-  return b;
-}
-
 
 static inline void normalize_nmod_param(param_t *nmod_param){
   if(nmod_param != NULL){
@@ -1688,14 +1127,15 @@ static inline int rational_reconstruction_mpz_ptr_with_denom(mpz_t *recons,
                                                   mpz_t *tmp_num,
                                                   mpz_t *tmp_den,
                                                   mpz_t lcm,
-                                                  mpz_t guessed_num,
+                                                  mpz_t gnum,
                                                   mpz_t guessed_den,
                                                   rrec_data_t rdata,
                                                   int info_level){
 
-  mpz_set(guessed_num, pol[*maxrec]);
 
-  if(ratreconwden(rnum, rden, guessed_num, modulus, guessed_den, rdata) == 0){
+  mpz_set(gnum, pol[*maxrec]);
+
+  if(ratreconwden(rnum, rden, gnum, modulus, guessed_den, rdata) == 0){
     return 0;
   }
 
@@ -1703,8 +1143,8 @@ static inline int rational_reconstruction_mpz_ptr_with_denom(mpz_t *recons,
   mpz_set(tmp_den[*maxrec], rden);
 
   for(long i = *maxrec + 1; i < len; i++){
-    mpz_set(guessed_num, pol[i]);
-    int b = ratreconwden(rnum, rden, guessed_num, modulus, guessed_den, rdata);
+    mpz_set(gnum, pol[i]);
+    int b = ratreconwden(rnum, rden, gnum, modulus, guessed_den, rdata);
 
     if(b == 0){
       *maxrec = MAX(0, i - 1);
@@ -1727,9 +1167,9 @@ static inline int rational_reconstruction_mpz_ptr_with_denom(mpz_t *recons,
   mpz_mul(rdata->N, rdata->N, lcm);
 
   for(long i = *maxrec-1; i >=0; i--){
-    mpz_set(guessed_num, pol[i]);
+    mpz_set(gnum, pol[i]);
     int b = ratreconwden(tmp_num[i], tmp_den[i],
-                         guessed_num, modulus, newlcm, rdata);
+                         gnum, modulus, newlcm, rdata);
 
       if(b == 0){
         *maxrec = MAX(i + 1, 0);
@@ -2033,7 +1473,6 @@ static inline int new_rational_reconstruction(mpz_param_t mpz_param,
       mpz_root(recdata->D, *modulus, 3);
       mpz_fdiv_q(recdata->N, *modulus, recdata->D);
       mpz_fdiv_q_2exp(recdata->N, recdata->N, 1);
-
       b = rational_reconstruction_upoly_with_denom(mpz_param->elim,
                                         denominator,
                                         tmp_mpz_param->elim,
@@ -2122,7 +1561,6 @@ static inline int new_rational_reconstruction(mpz_param_t mpz_param,
                                                      *guessed_den,
                                                      recdata,
                                                      info_level);
-
         if(b == 0){
           mpz_set_ui(recdata->D, 1);
           mpz_mul_2exp(recdata->D, recdata->D, nc);
@@ -2324,6 +1762,164 @@ static inline int check_param_modular(const mpz_param_t mp_param,
 }
 
 
+static inline void get_leading_ideal_information(
+        int32_t *num_gb,
+        int32_t **lead_mons,
+        const int32_t pos,
+        const bs_t * const bs
+        )
+{
+    lead_mons[pos] = get_lm_from_bs(bs, bs->ht);
+    num_gb[pos]    = bs->lml;
+}
+
+static inline void print_groebner_basis(
+        files_gb *files,
+        const data_gens_ff_t * const gens,
+        const bs_t * const bs,
+        md_t *md,
+        const int32_t fc
+        )
+{
+    if(md->print_gb){
+        int32_t gfc = md->gfc;
+        md->gfc     = fc;
+        print_ff_basis_data(files->out_file, "a", bs, bs->ht, md,
+                gens, md->print_gb);
+        md->gfc     = gfc;
+    }
+}
+
+static int32_t check_for_single_element_groebner_basis(
+        int *dim,
+        long *dquot_ori,
+        const bs_t * const bs,
+        int32_t **leadmons,
+        const int32_t pos,
+        const md_t * const md
+        )
+{
+    int32_t empty_solution_set = 1;
+    int32_t i;
+
+    if (bs->lml == 1) {
+        if (md->info_level > 0) {
+            fprintf(stdout, "Grobner basis has a single element\n");
+        }
+        for (i = 0; i < bs->ht->nv; i++) {
+            if (leadmons[pos][i] != 0) {
+                empty_solution_set = 0;
+                break;
+            }
+        }
+        if (empty_solution_set == 1) {
+            *dquot_ori = 0;
+            *dim = 0;
+            if (md->info_level > 0) {
+                fprintf(stdout, "No solution\n");
+            }
+        }
+    } else {
+        empty_solution_set = 0;
+    }
+
+    return empty_solution_set;
+}
+
+static int32_t *initial_modular_step(
+        sp_matfglm_t **bmatrix,
+        int32_t **bdiv_xn,
+        int32_t **blen_gb_xn,
+        int32_t **bstart_cf_gb_xn,
+
+        long *nlins_ptr,
+        uint64_t *linvars,
+        uint32_t** lineqs_ptr,
+        uint64_t *squvars,
+
+        fglm_data_t **bdata_fglm,
+        fglm_bms_data_t **bdata_bms,
+
+        int32_t *num_gb,
+        int32_t **leadmons,
+        uint64_t *bsz,
+        param_t **bparam,
+        bs_t *gbg,
+        md_t *md,
+        const int32_t fc,
+        int print_gb,
+        int *dim,
+        long *dquot_ori,
+        data_gens_ff_t *gens,
+        files_gb *files,
+        int *success)
+{
+    double rt = realtime();
+
+    md->print_gb = print_gb;
+
+    int32_t error              = 0;
+    int32_t empty_solution_set = 1;
+    bs_t *bs = core_gba(gbg, md, &error, fc);
+
+    print_tracer_statistics(stdout, rt, md);
+
+    get_leading_ideal_information(num_gb, leadmons, 0, bs);
+
+    print_groebner_basis(files, gens, bs, md, fc);
+
+    empty_solution_set = check_for_single_element_groebner_basis(dim, dquot_ori,
+            bs, leadmons, 0, md);
+
+    if (empty_solution_set == 1) {
+        return NULL;
+    }
+
+    check_and_set_linear_poly(nlins_ptr, linvars, lineqs_ptr, bs->ht,
+            leadmons[0], bs);
+    if (has_dimension_zero(bs->lml, bs->ht->nv, leadmons[0])) {
+        long dquot = 0;
+        int32_t *lmb = monomial_basis(bs->lml, bs->ht->nv, leadmons[0], &dquot);
+
+        if(md->info_level){
+            fprintf(stderr, "Dimension of quotient: %ld\n", dquot);
+        }
+        if(print_gb==0){
+            *bmatrix = build_matrixn_from_bs_trace(bdiv_xn,
+                    blen_gb_xn,
+                    bstart_cf_gb_xn,
+                    lmb, dquot, bs, bs->ht,
+                    leadmons[0], bs->ht->nv,
+                    fc,
+                    md->info_level);
+            if(*bmatrix == NULL){
+                *success = 0;
+                *dim = 0;
+                *dquot_ori = dquot;
+                return NULL;
+            }
+
+            *bsz = bs->ht->nv - (*nlins_ptr); //nlins ;
+
+            check_and_set_vars_squared_in_monomial_basis(squvars, lmb,
+                    dquot, gens->nvars);
+            *bparam = nmod_fglm_compute_trace_data(*bmatrix, fc, bs->ht->nv,
+                    *bsz, *nlins_ptr, linvars, lineqs_ptr[0], squvars,
+                    md->info_level, bdata_fglm, bdata_bms, success, md);
+        }
+        free_basis_without_hash_table(&(bs));
+        *dim = 0;
+        *dquot_ori = dquot;
+        return lmb;
+    }
+    else{
+        *dim  = 1;
+        *dquot_ori = -1;
+        free_basis_without_hash_table(&(bs));
+        return NULL;
+    }
+}
+
 
 
 /**
@@ -2341,6 +1937,7 @@ static inline int check_param_modular(const mpz_param_t mp_param,
 
 **/
 
+#if 0
 static int32_t * modular_trace_learning(sp_matfglm_t **bmatrix,
                                         int32_t **bdiv_xn,
                                         int32_t **blen_gb_xn,
@@ -2359,10 +1956,8 @@ static int32_t * modular_trace_learning(sp_matfglm_t **bmatrix,
                                         uint64_t *bsz,
                                         param_t **bparam,
                                         trace_t *trace,
-                                        ht_t *tht,
                                         bs_t *bs_qq,
-                                        ht_t *bht,
-                                        stat_t *st,
+                                        md_t *st,
                                         const int32_t fc,
                                         int info_level,
                                         int print_gb,
@@ -2372,42 +1967,32 @@ static int32_t * modular_trace_learning(sp_matfglm_t **bmatrix,
                                         files_gb *files,
                                         int *success)
 {
-    double ca0, rt;
-    ca0 = realtime();
+    double rt = realtime();
 
     bs_t *bs = NULL;
+    int32_t err = 0;
+    bs = core_gba(bs_qq, st, &err, fc);
+#if 0
     if(gens->field_char){
-      bs = bs_qq;
-      int boo = core_gba(&bs, &bht, &st);
-      if (!boo) {
+      if (err) {
         printf("Problem with F4, stopped computation.\n");
         exit(1);
       }
-      free_shared_hash_data(bht);
+      /* free_shared_hash_data(bht); */
     }
     else{
       if(st->laopt > 40){
-        bs = modular_f4(bs_qq, bht, st, fc);
+        bs = modular_f4(bs_qq, bs->ht, st, fc);
       }
       else{
-        bs = gba_trace_learning_phase(trace, tht, bs_qq, bht, st, fc);
+        bs = gba_trace_learning_phase(trace, st->tr->ht, bs_qq, bs->ht, st, fc);
       }
     }
-    rt = realtime()-ca0;
-
-    if(info_level > 1){
-        fprintf(stderr, "Learning phase %.2f Gops/sec\n",
-                (st->trace_nr_add+st->trace_nr_mult)/1000.0/1000.0/rt);
-    }
-    if(info_level > 2){
-        fprintf(stderr, "------------------------------------------\n");
-        fprintf(stderr, "#ADDITIONS       %13lu\n", (unsigned long)st->trace_nr_add * 1000);
-        fprintf(stderr, "#MULTIPLICATIONS %13lu\n", (unsigned long)st->trace_nr_mult * 1000);
-        fprintf(stderr, "#REDUCTIONS      %13lu\n", (unsigned long)st->trace_nr_red);
-        fprintf(stderr, "------------------------------------------\n");
-    }
+#endif
+    print_tracer_statistics(stdout, rt, st);
 
     /* Leading monomials from Grobner basis */
+    ht_t *bht = bs->ht;
     int32_t *bexp_lm = get_lm_from_bs(bs, bht);
     leadmons[0] = bexp_lm;
     num_gb[0] = bs->lml;
@@ -2434,13 +2019,13 @@ static int32_t * modular_trace_learning(sp_matfglm_t **bmatrix,
         }
     }
     if(print_gb){
-      if(st->fc == 0){
+      if(st->gfc == 0){
         /* to fix display inconsistency when gens->fc = 0 */
-        st->fc = fc;
+        st->gfc = fc;
 
         print_ff_basis_data(
                             files->out_file, "a", bs, bht, st, gens, print_gb);
-        st->fc = 0;
+        st->gfc = 0;
 
       }
       else{
@@ -2500,6 +2085,7 @@ static int32_t * modular_trace_learning(sp_matfglm_t **bmatrix,
         return NULL;
     }
 }
+#endif
 
 #if 0
 static int32_t * modular_probabilistic_first(sp_matfglm_t **bmatrix,
@@ -2521,7 +2107,7 @@ static int32_t * modular_probabilistic_first(sp_matfglm_t **bmatrix,
                                              param_t **bparam,
                                              const bs_t *bs_qq,
                                              ht_t *bht,
-                                             stat_t *st,
+                                             md_t *st,
                                              const int32_t fc,
                                              int info_level,
                                              int32_t print_gb,
@@ -2628,7 +2214,7 @@ static void modular_probabilistic_apply(sp_matfglm_t **bmatrix,
                                param_t **nmod_params,
                                const bs_t *bs_qq,
                                ht_t *bht,
-                               stat_t *st,
+                               md_t *st,
                                const int32_t fc,
                                int info_level,
                                bs_t **bs,
@@ -2654,7 +2240,22 @@ for (i = 0; i < st->nprimes; ++i){
   bs[i] = modular_f4(bs_qq, bht, st, lp->p[i]);
   *stf4 = realtime()-ca0;
 
-  if(bs[i]->lml != num_gb[i]){
+  if (bs[i] == NULL) {
+      return;
+  }
+  int32_t lml = bs[i]->lml;
+  if (st->nev > 0) {
+      int32_t j = 0;
+      for (len_t k = 0; k < bs[i]->lml; ++k) {
+          if ((*bht)->ev[bs[i]->hm[bs[i]->lmps[k]][OFFSET]][0] == 0) {
+              bs[i]->lm[j]   = bs[i]->lm[k];
+              bs[i]->lmps[j] = bs[i]->lmps[k];
+              ++j;
+          }
+      }
+      lml = j;
+  }
+  if(lml != num_gb[i]){
     /* nmod_params[i] = NULL; */
     bad_primes[i] = 1;
     return;
@@ -2694,6 +2295,129 @@ for (i = 0; i < st->nprimes; ++i){
 }
 #endif
 
+static void secondary_modular_steps(sp_matfglm_t **bmatrix,
+                                   int32_t **div_xn,
+                                   int32_t **len_gb_xn,
+                                   int32_t **start_cf_gb_xn,
+
+                                   long *bnlins,
+                                   uint64_t **blinvars,
+                                   uint32_t **blineqs,
+                                   uint64_t **bsquvars,
+
+                                   fglm_data_t **bdata_fglm,
+                                   fglm_bms_data_t **bdata_bms,
+
+                                   int32_t *num_gb,
+                                   int32_t **leadmons_ori,
+                                   int32_t **leadmons_current,
+
+                                   uint64_t bsz,
+                                   param_t **nmod_params,
+                                   /* trace_t **btrace, */
+                                   bs_t *bs_qq,
+                                   md_t *st,
+                                   const int32_t fc,
+                                   int info_level,
+                                   bs_t **bs,
+                                   int32_t *lmb_ori,
+                                   int32_t dquot_ori,
+                                   primes_t *lp,
+                                   data_gens_ff_t *gens,
+                                   double *stf4,
+                                   const long nbsols,
+                                   int *bad_primes)
+{
+    st->info_level = 0;
+
+    double rt = realtime();
+    /* tracing phase */
+    len_t i;
+    int32_t error = 0;
+
+    /* F4 and FGLM are run using a single thread */
+    /* st->nthrds is reset to its original value afterwards */
+    const int nthrds = st->nthrds;
+    st->nthrds = 1;
+
+    memset(bad_primes, 0, (unsigned long)st->nprimes * sizeof(int));
+#pragma omp parallel for num_threads(nthrds)  \
+    private(i) schedule(static)
+    for (i = 0; i < st->nprimes; ++i){
+        bs[i] = core_gba(bs_qq, st, &error, lp->p[i]);
+        *stf4 = realtime()-rt;
+        /* printf("F4 trace timing %13.2f\n", *stf4); */
+
+        if (error > 0) {
+            if (bs[i] != NULL) {
+                free(bs[i]);
+                bs[i] = NULL;
+            }
+            nmod_params[i] = NULL;
+            bad_primes[i] = 1;
+            continue;
+        }
+        int32_t lml = bs[i]->lml;
+        if (st->nev > 0) {
+            int32_t j = 0;
+            for (len_t k = 0; k < bs[i]->lml; ++k) {
+                if (bs[i]->ht->ev[bs[i]->hm[bs[i]->lmps[k]][OFFSET]][0] == 0) {
+                    bs[i]->lm[j]   = bs[i]->lm[k];
+                    bs[i]->lmps[j] = bs[i]->lmps[k];
+                    ++j;
+                }
+            }
+            lml = j;
+        }
+        if(lml != num_gb[i]){
+            if (bs[i] != NULL) {
+                free_basis(&(bs[i]));
+            }
+            /* nmod_params[i] = NULL; */
+            bad_primes[i] = 1;
+            continue;
+            /* return; */
+        }
+        get_lm_from_bs_trace(bs[i], bs[i]->ht, leadmons_current[i]);
+
+        if(equal_staircase(leadmons_current[i], leadmons_ori[i],
+                    num_gb[i], num_gb[i], bs[i]->ht->nv)){
+
+            set_linear_poly(bnlins[i], blineqs[i], blinvars[i], bs[i]->ht,
+                    leadmons_current[i], bs[i]);
+
+            build_matrixn_from_bs_trace_application(bmatrix[i],
+                    div_xn[i],
+                    len_gb_xn[i],
+                    start_cf_gb_xn[i],
+                    lmb_ori, dquot_ori, bs[i], bs[i]->ht,
+                    leadmons_ori[i], bs[i]->ht->nv,
+                    lp->p[i]);
+            if(nmod_fglm_compute_apply_trace_data(bmatrix[i], lp->p[i],
+                        nmod_params[i],
+                        bs[i]->ht->nv,
+                        bsz,
+                        bnlins[i], blinvars[i], blineqs[i],
+                        bsquvars[i],
+                        bdata_fglm[i],
+                        bdata_bms[i],
+                        nbsols,
+                        info_level,
+                        st)){
+                bad_primes[i] = 1;
+            }
+        }
+        else{
+            bad_primes[i] = 1;
+        }
+        if (bs[i] != NULL) {
+            free_basis_without_hash_table(&(bs[i]));
+        }
+    }
+    st->nthrds = nthrds;
+}
+
+#if 0
 static void modular_trace_application(sp_matfglm_t **bmatrix,
                                    int32_t **div_xn,
                                    int32_t **len_gb_xn,
@@ -2713,11 +2437,11 @@ static void modular_trace_application(sp_matfglm_t **bmatrix,
 
                                    uint64_t bsz,
                                    param_t **nmod_params,
-                                   trace_t **btrace,
+                                   /* trace_t **btrace, */
                                    ht_t **btht,
-                                   const bs_t *bs_qq,
+                                   bs_t *bs_qq,
                                    ht_t **bht,
-                                   stat_t *st,
+                                   md_t *st,
                                    const int32_t fc,
                                    int info_level,
                                    bs_t **bs,
@@ -2734,6 +2458,7 @@ static void modular_trace_application(sp_matfglm_t **bmatrix,
   /* tracing phase */
   len_t i;
   double ca0;
+  int32_t error = 0;
 
   /* F4 and FGLM are run using a single thread */
   /* st->nthrds is reset to its original value afterwards */
@@ -2745,21 +2470,40 @@ static void modular_trace_application(sp_matfglm_t **bmatrix,
     private(i) schedule(static)
   for (i = 0; i < st->nprimes; ++i){
     ca0 = realtime();
-    if(st->laopt > 40){
+    bs[i] = core_gba(bs_qq, st, &error, lp->p[i]);
+    /* if(st->laopt > 40){
       bs[i] = modular_f4(bs_qq, bht[i], st, lp->p[i]);
     }
     else{
       bs[i] = gba_trace_application_phase(btrace[i], btht[i], bs_qq, bht[i], st, lp->p[i]);
-    }
+    } */
     *stf4 = realtime()-ca0;
     /* printf("F4 trace timing %13.2f\n", *stf4); */
 
-    if(bs[i]->lml != num_gb[i]){
+    if (bs[i] == NULL) {
+        /* nmod_params[i] = NULL; */
+        bad_primes[i] = 1;
+        continue;
+    }
+    int32_t lml = bs[i]->lml;
+    if (st->nev > 0) {
+        int32_t j = 0;
+        for (len_t k = 0; k < bs[i]->lml; ++k) {
+            if ((*bht)->ev[bs[i]->hm[bs[i]->lmps[k]][OFFSET]][0] == 0) {
+                bs[i]->lm[j]   = bs[i]->lm[k];
+                bs[i]->lmps[j] = bs[i]->lmps[k];
+                ++j;
+            }
+        }
+        lml = j;
+    }
+    if(lml != num_gb[i]){
       if (bs[i] != NULL) {
         free_basis(&(bs[i]));
       }
-      nmod_params[i] = NULL;
+      /* nmod_params[i] = NULL; */
       bad_primes[i] = 1;
+      continue;
       /* return; */
     }
     get_lm_from_bs_trace(bs[i], bht[i], leadmons_current[i]);
@@ -2800,6 +2544,7 @@ static void modular_trace_application(sp_matfglm_t **bmatrix,
   }
   st->nthrds = nthrds;
 }
+#endif
 
 /* sets function pointer */
 void set_linear_function_pointer(int32_t fc){
@@ -2911,22 +2656,22 @@ int msolve_trace_qq(mpz_param_t mpz_param,
   len_t i;
 
   /* initialize stuff */
-  stat_t *st  = initialize_statistics();
+  md_t *st  = allocate_meta_data();
 
-    int *invalid_gens   =   NULL;
-    int res = validate_input_data(&invalid_gens, cfs, lens, &field_char, &mon_order,
-            &elim_block_len, &nr_vars, &nr_gens, &nr_nf, &ht_size, &nr_threads,
-            &max_nr_pairs, &reset_ht, &la_option, &use_signatures, &reduce_gb,
-            &info_level);
+  int *invalid_gens   =   NULL;
+  int res = validate_input_data(&invalid_gens, cfs, lens, &field_char, &mon_order,
+                                &elim_block_len, &nr_vars, &nr_gens, &nr_nf, &ht_size, &nr_threads,
+                                &max_nr_pairs, &reset_ht, &la_option, &use_signatures, &reduce_gb,
+                                &info_level);
 
-    /* all data is corrupt */
-    if (res == -1) {
-        fprintf(stderr, "Invalid input generators, msolve now terminates.\n");
-        free(invalid_gens);
-        return -3;
-    }
-    /* checks and set all meta data. if a nonzero value is returned then
-     * some of the input data is corrupted. */
+  /* all data is corrupt */
+  if (res == -1) {
+    fprintf(stderr, "Invalid input generators, msolve now terminates.\n");
+    free(invalid_gens);
+    return -3;
+  }
+  /* checks and set all meta data. if a nonzero value is returned then
+   * some of the input data is corrupted. */
 
   if (check_and_set_meta_data_trace(st, lens, exps, cfs, invalid_gens,
               field_char, mon_order, elim_block_len, nr_vars, nr_gens,
@@ -2944,27 +2689,20 @@ int msolve_trace_qq(mpz_param_t mpz_param,
   * initialize basis
   *******************/
   bs_t *bs_qq = initialize_basis(st);
-  /* initialize basis hash table, update hash table, symbolic hash table */
-  ht_t *bht = initialize_basis_hash_table(st);
-  /* hash table to store the hashes of the multiples of
-    * the basis elements stored in the trace */
-  ht_t *tht = initialize_secondary_hash_table(bht, st);
   /* read in ideal, move coefficients to integers */
-  import_input_data(bs_qq, bht, st, lens, exps, cfs, invalid_gens);
+  import_input_data(bs_qq, st, 0, st->ngens_input, lens, exps, cfs, invalid_gens);
   free(invalid_gens);
   invalid_gens  =   NULL;
 
-  if (st->info_level > 0) {
-    print_initial_statistics(stderr, st);
-  }
+  print_initial_statistics(stderr, st);
 
   /* for faster divisibility checks, needs to be done after we have
     * read some input data for applying heuristics */
-  calculate_divmask(bht);
+  calculate_divmask(bs_qq->ht);
 
   /* sort initial elements, smallest lead term first */
   sort_r(bs_qq->hm, (unsigned long)bs_qq->ld, sizeof(hm_t *),
-          initial_input_cmp, bht);
+          initial_input_cmp, bs_qq->ht);
   if(gens->field_char == 0){
     remove_content_of_initial_basis(bs_qq);
     /* generate lucky prime numbers */
@@ -2986,13 +2724,14 @@ int msolve_trace_qq(mpz_param_t mpz_param,
   int *bad_primes = calloc((unsigned long)st->nthrds, sizeof(int));
 
   /* initialize tracers */
-  trace_t **btrace = (trace_t **)calloc(st->nthrds,
+  /* trace_t **btrace = (trace_t **)calloc(st->nthrds,
                                        sizeof(trace_t *));
-  btrace[0]  = initialize_trace();
+  btrace[0]  = initialize_trace(bs_qq, st); */
   /* initialization of other tracers is done through duplication */
 
-  uint32_t prime = next_prime(1<<30);
-  uint32_t primeinit;
+  uint32_t prime = 0; 
+  uint32_t primeinit = 0;
+  uint32_t lprime = 1303905299;
   srand(time(0));
   prime = next_prime(rand() % (1303905301 - (1<<30) + 1) + (1<<30));
   while(gens->field_char==0 && is_lucky_prime_ui(prime, bs_qq)){
@@ -3001,6 +2740,7 @@ int msolve_trace_qq(mpz_param_t mpz_param,
 
   primeinit = prime;
   lp->p[0] = primeinit;
+
   if(gens->field_char){
     lp->p[0] = gens->field_char;
   }
@@ -3025,7 +2765,7 @@ int msolve_trace_qq(mpz_param_t mpz_param,
   long nlins = 0;
   long *bnlins = (long *)calloc(st->nthrds, sizeof(long));
   uint64_t **blinvars = (uint64_t **)calloc(st->nthrds, sizeof(uint64_t *));
-  uint64_t *linvars = calloc(bht->nv, sizeof(uint64_t));
+  uint64_t *linvars = calloc(bs_qq->ht->nv, sizeof(uint64_t));
   blinvars[0] = linvars;
   uint32_t **lineqs_ptr = calloc(st->nthrds, sizeof(uint32_t *));
   uint64_t **bsquvars = (uint64_t **) calloc(st->nthrds, sizeof(uint64_t *));
@@ -3036,7 +2776,7 @@ int msolve_trace_qq(mpz_param_t mpz_param,
 
   int success = 1;
   int squares = 1;
-
+#if 0
   int32_t *lmb_ori = modular_trace_learning(bmatrix, bdiv_xn, blen_gb_xn,
                                             bstart_cf_gb_xn,
 
@@ -3047,16 +2787,36 @@ int msolve_trace_qq(mpz_param_t mpz_param,
 
                                             num_gb, leadmons_ori,
 
-                                            &bsz, nmod_params, btrace[0],
-                                            tht, bs_qq, bht, st,
+                                            &bsz, nmod_params,
+                                            btrace[0],
+                                            bs_qq, st,
                                             lp->p[0], //prime,
-                                            info_level,
+                                            st->info_level,
                                             print_gb,
                                             dim_ptr, dquot_ptr,
                                             gens,
                                             files,
                                             &success);
+#else
+  int32_t *lmb_ori = initial_modular_step(bmatrix, bdiv_xn, blen_gb_xn,
+                                            bstart_cf_gb_xn,
 
+                                            &nlins, blinvars[0], lineqs_ptr,
+                                            squvars,
+
+                                            bdata_fglm, bdata_bms,
+
+                                            num_gb, leadmons_ori,
+
+                                            &bsz, nmod_params,
+                                            bs_qq, st,
+                                            lp->p[0], //prime,
+                                            print_gb,
+                                            dim_ptr, dquot_ptr,
+                                            gens,
+                                            files,
+                                            &success);
+#endif
   if(*dim_ptr == 0 && success && *dquot_ptr > 0 && print_gb == 0){
     if(nmod_params[0]->elim->length - 1 != *dquot_ptr){
       for(int i = 0; i < nr_vars - 1; i++){
@@ -3073,27 +2833,31 @@ int msolve_trace_qq(mpz_param_t mpz_param,
 
   if(lmb_ori == NULL || success == 0 || print_gb || gens->field_char) {
       /* print_msolve_message(stderr, 1); */
-    for(int i = 0; i < st->nthrds; i++){
-      /* free_trace(&btrace[i]); */
+    /* for(int i = 0; i < st->nthrds; i++){
+      free_trace(&btrace[i]);
     }
-    free(btrace);
+    free(btrace); */
     if(gens->field_char==0){
-      free_shared_hash_data(bht);
+      /* free_shared_hash_data(bht);
       if(bht!=NULL){
         free_hash_table(&bht);
       }
-      free(bht);
+      free(bht); */
     }
-    if(tht!=NULL){
+    /* if(tht!=NULL){
       free_hash_table(&tht);
     }
-    free(tht);
-    /* for (i = 0; i < st->nthrds; ++i) { */
-    /*   free_basis(&(bs[i])); */
-    /* } */
+    free(tht); */
+    if (gens->field_char == 0) {
+        for (i = 0; i < st->nthrds; ++i) {
+            if (bs[i] != NULL) {
+                free_basis_without_hash_table(&(bs[i]));
+            }
+        }
+    }
     free(bs);
     if(gens->field_char==0){
-      free(bs_qq);
+      free_basis(&bs_qq);
     }
     //here we should clean nmod_params
     free_lucky_primes(&lp);
@@ -3103,6 +2867,7 @@ int msolve_trace_qq(mpz_param_t mpz_param,
     if(nlins){
       free(lineqs_ptr[0]);
     }
+    free(bnlins);
     free(lineqs_ptr);
     free(squvars);
     if(print_gb){
@@ -3151,33 +2916,22 @@ int msolve_trace_qq(mpz_param_t mpz_param,
   mpz_matfglm_initset(mpz_mat, *bmatrix);
 #endif
 
+  /* btrace[0] = st->tr; */
+
   /* duplicate data for multi-threaded multi-mod computation */
-  duplicate_data_mthread_trace(st->nthrds, st, num_gb,
+  duplicate_data_mthread_trace(st->nthrds, bs_qq, st, num_gb,
                                leadmons_ori, leadmons_current,
-                               btrace,
+                               /* btrace, */
                                bdata_bms, bdata_fglm,
                                bstart_cf_gb_xn, blen_gb_xn, bdiv_xn, bmatrix,
                                nmod_params, nlins, bnlins,
                                blinvars, lineqs_ptr,
                                bsquvars);
 
-  /* copy of hash tables for tracer application */
-  ht_t **blht = (ht_t **)malloc((st->nthrds) * sizeof(ht_t *));
-  blht[0] = bht;
-  for(int i = 1; i < st->nthrds; i++){
-    ht_t *lht = copy_hash_table(bht, st);
-    blht[i] = lht;
-  }
-  ht_t **btht = (ht_t **)malloc((st->nthrds) * sizeof(ht_t *));
-  btht[0] = tht;
-  for(int i = 1; i < st->nthrds; i++){
-    btht[i] = copy_hash_table(tht, st);
-  }
-
   normalize_nmod_param(nmod_params[0]);
 
   if(info_level){
-    fprintf(stderr, "\nStarts trace based multi-modular computations\n");
+    fprintf(stderr, "\nStarts multi-modular computations\n");
   }
 
   mpz_param_t tmp_mpz_param;
@@ -3218,7 +2972,9 @@ int msolve_trace_qq(mpz_param_t mpz_param,
   mpq_init(test);
   mpz_t rnum, rden; /* num and den of reconstructed rationals */
   mpz_init(rnum);
+  mpz_set_ui(rnum, 0);
   mpz_init(rden);
+  mpz_set_ui(rden, 0);
   set_mpz_param_nmod(tmp_mpz_param, nmod_params[0]);
 
 
@@ -3235,8 +2991,10 @@ int msolve_trace_qq(mpz_param_t mpz_param,
 
   mpz_t guessed_den;
   mpz_init2(guessed_den, 32*nsols);
+  mpz_set_ui(guessed_den, 1);
   mpz_t guessed_num;
   mpz_init2(guessed_num, 32*nsols);
+  mpz_set_ui(guessed_num, 0);
 
   long maxrec = 0;
   long matrec = 0;
@@ -3256,7 +3014,6 @@ int msolve_trace_qq(mpz_param_t mpz_param,
   int lpow2 = 0;
   int clog = 0;
   int br = 0;
-  prime = next_prime(1<<30);
 
   rrec_data_t recdata;
   initialize_rrec_data(recdata);
@@ -3271,17 +3028,29 @@ int msolve_trace_qq(mpz_param_t mpz_param,
 
     /* generate lucky prime numbers */
     prime = next_prime(prime);
+    if(prime >= lprime){
+      prime = next_prime(1<<30);
+    }
     lp->p[0] = prime;
     while(is_lucky_prime_ui(prime, bs_qq) || prime==primeinit){
       prime = next_prime(prime);
+      if(prime >= lprime){
+        prime = next_prime(1<<30);
+      }
       lp->p[0] = prime;
     }
 
     for(len_t i = 1; i < st->nthrds; i++){
       prime = next_prime(prime);
+      if(prime >= lprime){
+        prime = next_prime(1<<30);
+      }
       lp->p[i] = prime;
       while(is_lucky_prime_ui(prime, bs_qq) || prime==primeinit){
         prime = next_prime(prime);
+        if(prime >= lprime){
+          prime = next_prime(1<<30);
+        }
         lp->p[i] = prime;
       }
     }
@@ -3290,7 +3059,7 @@ int msolve_trace_qq(mpz_param_t mpz_param,
     double ca0 = realtime();
 
     double stf4 = 0;
-    modular_trace_application(bmatrix,
+    secondary_modular_steps(bmatrix,
                               bdiv_xn,
                               blen_gb_xn,
                               bstart_cf_gb_xn,
@@ -3307,8 +3076,8 @@ int msolve_trace_qq(mpz_param_t mpz_param,
                               leadmons_current,
 
                               bsz,
-                              nmod_params, btrace,
-                              btht, bs_qq, blht, st,
+                              nmod_params, /* btrace, */
+                              bs_qq, st,
                               field_char, 0, /* info_level, */
                               bs, lmb_ori, *dquot_ptr, lp,
                               gens, &stf4, nsols, bad_primes);
@@ -3325,7 +3094,7 @@ int msolve_trace_qq(mpz_param_t mpz_param,
       if(info_level>1){
         fprintf(stderr, "Application phase %.2f Gops/sec\n",
                 (st->application_nr_add+st->application_nr_mult)/1000.0/1000.0/(stf4));
-        fprintf(stderr, "Tracer + fglm time (elapsed): %.2f sec\n",
+        fprintf(stderr, "Multi-mod time: GB + fglm (elapsed): %.2f sec\n",
                 (ca1) );
       }
     }
@@ -3405,6 +3174,7 @@ int msolve_trace_qq(mpz_param_t mpz_param,
         nbadprimes++;
         if(nbadprimes > nprimes){
           free(linvars);
+          free(bnlins);
           free(lineqs_ptr[0]);
           free(lineqs_ptr);
           free(squvars);
@@ -3422,7 +3192,7 @@ int msolve_trace_qq(mpz_param_t mpz_param,
     double t = ((double)nbdoit)*ca1;
     if((t == 0) || (scrr >= 0.2*t && br == 0)){
       nbdoit=2*nbdoit;
-      lpow2 = nprimes - lpow2;
+      lpow2 = 2*nprimes - lpow2;
       doit = 0;
       if(info_level){
         fprintf(stderr, "\n<Step:%d/%.2f/%.2f>",nbdoit,scrr,t);
@@ -3438,6 +3208,7 @@ int msolve_trace_qq(mpz_param_t mpz_param,
           fprintf(stderr, "{%d}", nprimes);
         }
         clog++;
+        lpow2 = 2*lpow2;
     }
 
   }
@@ -3470,11 +3241,11 @@ int msolve_trace_qq(mpz_param_t mpz_param,
   trace_det_clear(trace_det);
 
   /* free and clean up */
-  free_shared_hash_data(bht);
-  for(int i = 0; i < st->nthrds; i++){
+  /* free_shared_hash_data(bht); */
+  /* for(int i = 0; i < st->nthrds; i++){
     free_hash_table(blht+i);
     free_hash_table(btht+i);
-  }
+  } */
 
   //here we should clean nmod_params
 
@@ -3495,7 +3266,7 @@ int msolve_trace_qq(mpz_param_t mpz_param,
     free(bmatrix[i]);
     free(leadmons_ori[i]);
     free(leadmons_current[i]);
-    free_trace(&btrace[i]);
+    /* free_trace(&btrace[i]); */
     free(nmod_params[i]);
 
     free(blinvars[i]);
@@ -3513,8 +3284,10 @@ int msolve_trace_qq(mpz_param_t mpz_param,
   free(nmod_params);
 
   free_lucky_primes(&lp);
+  free_trace(&(st->tr));
   free(st);
   free(bad_primes);
+  free(bnlins);
   free(blinvars);
   free(lineqs_ptr);
   free(bsquvars);
@@ -3523,7 +3296,7 @@ int msolve_trace_qq(mpz_param_t mpz_param,
   free(blen_gb_xn);
   free(bstart_cf_gb_xn);
   free(bdiv_xn);
-  free(btrace);
+  /* free(btrace); */
 
   return 0;
 }
@@ -3550,58 +3323,50 @@ void real_point_clear(real_point_t pt){
 }
 
 
-void display_real_point_middle(FILE *fstream, real_point_t pt){
-  mpz_t c;
-  mpz_init(c);
-  fprintf(fstream, "[");
-  for(long i = 0; i < pt->nvars - 1; i++){
-    mpz_add(c, pt->coords[i]->val_do, pt->coords[i]->val_up);
-    mpz_out_str(fstream, 10, c);
-    fprintf(fstream, " / ");
-    fprintf(fstream, "2^%ld, ", pt->coords[i]->k_do + 1);
-  }
-  mpz_add(c, pt->coords[pt->nvars - 1]->val_do, pt->coords[pt->nvars - 1]->val_up);
-  mpz_out_str(fstream, 10, c);
-  fprintf(fstream, " / ");
-  fprintf(fstream, "2^%ld ", pt->coords[pt->nvars - 1]->k_do + 1);
-  fprintf(fstream, "]");
-  mpz_clear(c);
-}
-
-void display_real_points_middle(FILE *fstream, real_point_t *pts, long nb){
-  fprintf(fstream, "[");
-  for(long i = 0; i < nb - 1; i++){
-    display_real_point_middle(fstream, pts[i]);
-    fprintf(fstream, ", ");
-  }
-  /* There might be no real solutions, so nb could be zero and
-   * we have to recheck this here again. */
-  if (nb > 0) {
-    display_real_point_middle(fstream, pts[nb - 1]);
-  }
-  fprintf(fstream, "]:\n");
-}
-
 void display_real_point(FILE *fstream, real_point_t pt){
 
   fprintf(fstream, "[");
   for(long i = 0; i < pt->nvars - 1; i++){
     fprintf(fstream, "[");
     mpz_out_str(fstream, 10, pt->coords[i]->val_do);
-    fprintf(fstream, " / ");
-    fprintf(fstream, "2^%ld, ", pt->coords[i]->k_do);
+    if(pt->coords[i]->k_do && mpz_sgn(pt->coords[i]->val_do)){
+      fprintf(fstream, " / ");
+      fprintf(fstream, "2");
+      if(pt->coords[i]->k_do> 1){
+        fprintf(fstream, "^%ld", pt->coords[i]->k_do);
+      }
+    }
+    fprintf(fstream, ", ");
     mpz_out_str(fstream, 10, pt->coords[i]->val_up);
-    fprintf(fstream, " / ");
-    fprintf(fstream, "2^%ld", pt->coords[i]->k_up);
+    if(pt->coords[i]->k_up && mpz_sgn(pt->coords[i]->val_up)){
+      fprintf(fstream, " / ");
+      fprintf(fstream, "2");
+      if(pt->coords[i]->k_up> 1){
+        fprintf(fstream, "^%ld", pt->coords[i]->k_up);
+      }
+    }
     fprintf(fstream, "], ");
   }
   fprintf(fstream, "[");
   mpz_out_str(fstream, 10, pt->coords[pt->nvars - 1]->val_do);
-  fprintf(fstream, " / ");
-  fprintf(fstream, "2^%ld, ", pt->coords[pt->nvars - 1]->k_do);
+  if(pt->coords[pt->nvars - 1]->k_do && mpz_sgn(pt->coords[pt->nvars - 1]->val_do)){
+    fprintf(fstream, " / ");
+    fprintf(fstream, "2");
+    if(pt->coords[pt->nvars - 1]->k_do> 1){
+      fprintf(fstream, "^%ld", pt->coords[pt->nvars - 1]->k_do);
+    }
+  }
+  fprintf(fstream, ", ");
+
   mpz_out_str(fstream, 10, pt->coords[pt->nvars - 1]->val_up);
-  fprintf(fstream, " / ");
-  fprintf(fstream, "2^%ld", pt->coords[pt->nvars - 1]->k_up);
+  if(pt->coords[pt->nvars - 1]->k_up && mpz_sgn(pt->coords[pt->nvars - 1]->val_up)){
+    fprintf(fstream, " / ");
+    fprintf(fstream, "2");
+    if(pt->coords[pt->nvars - 1]->k_up> 1){
+      fprintf(fstream, "^%ld", pt->coords[pt->nvars - 1]->k_up);
+    }
+  }
+
   fprintf(fstream, "]");
   fprintf(fstream, "]");
 
@@ -4122,6 +3887,34 @@ void lazy_single_real_root_param(mpz_param_t param, mpz_t *polelim,
 
 }
 
+void normalize_points(real_point_t *pts, int64_t nb, int32_t nv){
+
+  for(int64_t i = 0; i < nb; i++){
+    for(int32_t j = 0; j < nv; j++){
+      int64_t b = 0;
+      while(mpz_cmp_ui(pts[i]->coords[j]->val_up, 0) !=0 && mpz_divisible_2exp_p(pts[i]->coords[j]->val_up, b + 1) != 0){
+        b++;
+      }
+      b = MIN(b, pts[i]->coords[j]->k_up);
+      if(b){
+        mpz_tdiv_q_2exp(pts[i]->coords[j]->val_up, pts[i]->coords[j]->val_up, b);
+        pts[i]->coords[j]->k_up -= b;
+      }
+
+      b = 0;
+
+      while(mpz_cmp_ui(pts[i]->coords[j]->val_do, 0) !=0 && mpz_divisible_2exp_p(pts[i]->coords[j]->val_do, b + 1) != 0){
+        b++;
+      }
+      b = MIN(b, pts[i]->coords[j]->k_do);
+      if(b){
+        mpz_tdiv_q_2exp(pts[i]->coords[j]->val_do, pts[i]->coords[j]->val_do, b);
+        pts[i]->coords[j]->k_do -= b;
+      }
+
+    }
+  }
+}
 
 void extract_real_roots_param(mpz_param_t param, interval *roots, long nb,
                               real_point_t *pts, long prec, long nbits,
@@ -4141,7 +3934,10 @@ void extract_real_roots_param(mpz_param_t param, interval *roots, long nb,
     mpz_init_set_ui(xdo[i], 1);
   }
   mpz_t *tab = (mpz_t*)(calloc(8,sizeof(mpz_t)));//table for some intermediate values
-  for(int i=0;i<8;i++)mpz_init(tab[i]);
+  for(int i=0;i<8;i++){
+    mpz_init(tab[i]);
+    mpz_set_ui(tab[i], 0);
+  }
 
   mpz_t *polelim = calloc(param->elim->length, sizeof(mpz_t));
   for(long i = 0; i < param->elim->length; i++){
@@ -4194,6 +3990,8 @@ void extract_real_roots_param(mpz_param_t param, interval *roots, long nb,
   free(polelim);
   mpz_clear(pos_root->numer);
   free(pos_root);
+
+  normalize_points(pts, nb, param->nvars);
 }
 
 
@@ -4331,17 +4129,17 @@ int real_msolve_qq(mpz_param_t mp_param,
   double ct1 = cputime();
   double rt1 = realtime();
 
+  if(info_level && print_gb == 0){
+    fprintf(stderr, "Time for rational param: %13.2f (elapsed) sec / %5.2f sec (cpu)\n\n",
+            rt1 - rt0, ct1 - ct0);
+  }
+
   if(get_param>1){
     return b;
   }
 
   if(print_gb){
     return 0;
-  }
-
-  if(info_level){
-    fprintf(stderr, "Time for rational param: %13.2f (elapsed) sec / %5.2f sec (cpu)\n\n",
-            rt1 - rt0, ct1 - ct0);
   }
 
   real_point_t *pts = NULL;
@@ -4361,13 +4159,16 @@ int real_msolve_qq(mpz_param_t mp_param,
       }
       /* If we changed the variable order for genericity reasons we have
        * to rechange the entries in the solution points. */
-      if (gens->change_var_order != -1 &&
+      /* This is to be done only when the parametrization is not requested */
+      if (get_param == 0 &&
+          gens->change_var_order != -1 &&
           gens->change_var_order != mp_param->nvars-1) {
         coord_t *tmp = malloc(sizeof(coord_t));
-        int32_t lidx  = pts[0]->nvars - 1 - gens->change_var_order;
+        const int32_t nvars = gens->nvars;
+        int32_t lidx  = gens->change_var_order;
         for (long i = 0; i < nb; ++i) {
-          memcpy(tmp,pts[i]->coords[0], sizeof(coord_t));
-          memcpy(pts[i]->coords[0], pts[i]->coords[lidx], sizeof(coord_t));
+          memcpy(tmp, pts[i]->coords[nvars - 1], sizeof(coord_t));
+          memcpy(pts[i]->coords[nvars - 1], pts[i]->coords[lidx], sizeof(coord_t));
           memcpy(pts[i]->coords[lidx], tmp, sizeof(coord_t));
         }
         free(tmp);
@@ -4556,7 +4357,7 @@ restart:
             /* data structures for basis, hash table and statistics */
             bs_t *bs    = NULL;
             ht_t *bht   = NULL;
-            stat_t *st  = NULL;
+            md_t *st  = NULL;
 
             /* for (int ii = 0; ii<gens->nvars; ++ii) {
              *     mul[ii] = 1;
@@ -4578,11 +4379,11 @@ restart:
                 exit(1);
             }
 
-            st->fc  = gens->field_char;
+            st->gfc  = gens->field_char;
             if(info_level){
                 fprintf(stderr,
                         "NOTE: Field characteristic is now corrected to %u\n",
-                        st->fc);
+                        st->gfc);
             }
             if (!success) {
                 printf("Bad input data, stopped computation.\n");
@@ -4601,12 +4402,10 @@ restart:
             /* timings */
             ct1 = cputime();
             rt1 = realtime();
-            st->overall_ctime = ct1 - ct0;
-            st->overall_rtime = rt1 - rt0;
+            st->f4_ctime = ct1 - ct0;
+            st->f4_rtime = rt1 - rt0;
 
-            if (st->info_level > 1) {
-                print_final_statistics(stderr, st);
-            }
+            get_and_print_final_statistics(stderr, st, bs);
 
             if(nb==0){
                 fprintf(stderr, "Something went wrong during the computation\n");
@@ -4625,13 +4424,14 @@ restart:
             bs_t *bs    = NULL;
             bs_t *sat   = NULL;
             ht_t *bht   = NULL;
-            stat_t *st  = NULL;
+            md_t *st  = NULL;
 
             /* for (int ii = 0; ii<gens->nvars; ++ii) {
              *     mul[ii] = 1;
              * } */
 
-            int success = 0;
+            int32_t error = 0;
+            int success   = 0;
 
             /*             initialize generators of ideal, note the "gens->ngens-normal_form" which
              *             means that we only take the first nr_gens-normal_form generators from
@@ -4651,15 +4451,15 @@ restart:
                     update_ht, la_option, use_signatures, 1 /* reduce_gb */, 0,
                     info_level);
 
-            st->fc  = gens->field_char;
-            set_ff_bits(st, st->fc);
+            st->gfc  = gens->field_char;
+            set_ff_bits(st, st->gfc);
             if(info_level){
                 fprintf(stderr,
                         "NOTE: Field characteristic is now corrected to %u\n",
-                        st->fc);
+                        st->gfc);
             }
             if(st->ff_bits < 32){
-              fprintf(stderr, "Error: not implemented yet (prime field of too low characteristic\n");
+              fprintf(stderr, "Error: not implemented yet (prime field of too low characteristic)\n");
               return 1;
             }
             if (!success) {
@@ -4675,18 +4475,17 @@ restart:
                 }
             } else {
                 sat = initialize_basis(st);
-                import_input_data_nf_ff_32(
-                                           sat, bht, st, gens->ngens-saturate, gens->ngens,
-                                           gens->lens, gens->exps, (void *)gens->cfs);
+                sat->ht = bht;
+                import_input_data(sat, st, gens->ngens-saturate, gens->ngens, gens->lens, gens->exps, (void *)gens->cfs, NULL);
 
                 sat->ld = sat->lml  =  saturate;
-                /* normalize_initial_basis(tbr, st->fc); */
+                /* normalize_initial_basis(tbr, st->gfc); */
                 for (int k = 0; k < saturate; ++k) {
                     sat->lmps[k]  = k; /* fix input element in tbr */
                 }
 
                 /* compute a gb for initial generators */
-                success = core_f4sat(&bs, &sat, &bht, &st);
+                success = core_f4sat(bs, sat, st, &error);
 
                 if (!success) {
                     printf("Problem with f4sat, stopped computation.\n");
@@ -4698,12 +4497,10 @@ restart:
                 /* timings */
                 ct1 = cputime();
                 rt1 = realtime();
-                st->overall_ctime = ct1 - ct0;
-                st->overall_rtime = rt1 - rt0;
+                st->f4_ctime = ct1 - ct0;
+                st->f4_rtime = rt1 - rt0;
 
-                if (st->info_level > 1) {
-                    print_final_statistics(stderr, st);
-                }
+                get_and_print_final_statistics(stderr, st, bs);
 
                 if(nb==0){
                     fprintf(stderr, "Something went wrong during the computation\n");
@@ -4722,7 +4519,7 @@ restart:
             bs_t *bs    = NULL;
             bs_t *tbr   = NULL;
             ht_t *bht   = NULL;
-            stat_t *st  = NULL;
+            md_t *st  = NULL;
 
 	    double ct0, rt0, ct0p, rt0p, ct1, rt1, ct2, rt2, ct3, rt3, ct4, rt4;
 	    ct0 = cputime();
@@ -4736,7 +4533,7 @@ restart:
             /* for (int ii = 0; ii<gens->nvars; ++ii) {
              *     mul[ii] = 1;
              * } */
-            int success = 0;
+            int32_t err = 0;
 
             /* initialize generators of ideal, note the "gens->ngens-1_form" which
              * means that we only take the first nr_gens-1 generators from
@@ -4748,7 +4545,7 @@ restart:
              * routines are the 32-bit implementations (since nf is at the moment
              * only implemented for 32-bit elements). Later on we set st-fc by hand
              * to the correct field characteristic. */
-            success = initialize_gba_input_data(&bs, &bht, &st,
+            int success = initialize_gba_input_data(&bs, &bht, &st,
                     gens->lens, gens->exps, (void *)gens->cfs,
                     1073741827, 0 /* DRL order */, elim_block_len, gens->nvars,
                     /* gens->field_char, 0 [> DRL order <], gens->nvars, */
@@ -4756,11 +4553,11 @@ restart:
                     update_ht, la_option, use_signatures, 1 /* reduce_gb */, 0,
                     info_level);
 
-	    st->fc  = gens->field_char;
+	    st->gfc  = gens->field_char;
             if(info_level){
                 fprintf(stderr,
                         "NOTE: Field characteristic is now corrected to %u\n",
-                        st->fc);
+                        st->gfc);
             }
             if (!success) {
                 printf("Bad input data, stopped computation.\n");
@@ -4786,9 +4583,9 @@ restart:
             } else {
 
                 /* compute a gb for initial generators */
-                success = core_gba(&bs, &bht, &st);
+                bs = core_gba(bs, st, &err, gens->field_char);
 
-                if (!success) {
+                if (err) {
                     printf("Problem with F4, stopped computation.\n");
                     exit(1);
                 }
@@ -4811,18 +4608,19 @@ restart:
              * NOTE: Don't initialize BEFORE running core_f4, bht may
              * change, so hash values of tbr may become wrong. */
             tbr = initialize_basis(st);
-            import_input_data_nf_ff_32(tbr, bht, st, gens->ngens-1, gens->ngens,
-				       gens->lens, gens->exps, (void *)gens->cfs);
+            tbr->ht = bht;
+            import_input_data(tbr, st, gens->ngens-1, gens->ngens, gens->lens, gens->exps, (void *)gens->cfs, NULL);
             tbr->ld = tbr->lml  =  1;
-            /* normalize_initial_basis(tbr, st->fc); */
+            /* normalize_initial_basis(tbr, st->gfc); */
             for (int k = 0; k < 1; ++k) {
                 tbr->lmps[k]  = k; /* fix input element in tbr */
             }
 
             /* compute normal form of last element in tbr */
-            success = core_nf(&tbr, &bht, &st, mul, bs);
 
-            if (!success) {
+            tbr = core_nf(tbr, st, mul, bs, &err);
+
+            if (err) {
                 printf("Problem with normalform, stopped computation.\n");
                 exit(1);
             }
@@ -4946,7 +4744,7 @@ restart:
 	    param_t * param = nmod_fglm_guess_colon(matrix, gens->field_char,
 						    leftvector, leftvectorsparam,
 						    gens->nvars,
-						    0, linvars, lineqs, squvars, 1);
+						    0, linvars, lineqs, squvars, 1, st);
 	    ct4 = cputime();
 	    rt4 = realtime();
 	    if (info_level) {
@@ -5126,17 +4924,14 @@ restart:
             bs_t *bs    = NULL;
             bs_t *tbr   = NULL;
             ht_t *bht   = NULL;
-            stat_t *st  = NULL;
+            md_t *st  = NULL;
 
-            /* generate array for storing multiplier for polynomial
-             * to be reduced by basis */
-
-            exp_t *mul  = (exp_t *)calloc(gens->nvars, sizeof(exp_t));
 
             /* for (int ii = 0; ii<gens->nvars; ++ii) {
              *     mul[ii] = 1;
              * } */
 
+            int32_t err = 0;
             int success = 0;
 
             /* initialize generators of ideal, note the "gens->ngens-normal_form" which
@@ -5151,18 +4946,13 @@ restart:
              * to the correct field characteristic. */
             success = initialize_gba_input_data(&bs, &bht, &st,
                     gens->lens, gens->exps, (void *)gens->cfs,
-                    1073741827, 0 /* DRL order */, elim_block_len, gens->nvars,
+                    gens->field_char, 0 /* DRL order */, elim_block_len, gens->nvars,
                     /* gens->field_char, 0 [> DRL order <], gens->nvars, */
                     gens->ngens, normal_form, initial_hts, nr_threads, max_pairs,
                     update_ht, la_option, use_signatures, 1 /* reduce_gb */, 0,
                     info_level);
 
-            st->fc  = gens->field_char;
-            if(info_level){
-                fprintf(stderr,
-                        "NOTE: Field characteristic is now corrected to %u\n",
-                        st->fc);
-            }
+            st->gfc  = gens->field_char;
             if (!success) {
                 printf("Bad input data, stopped computation.\n");
                 exit(1);
@@ -5177,38 +4967,39 @@ restart:
             } else {
 
                 /* compute a gb for initial generators */
-                success = core_gba(&bs, &bht, &st);
+                bs = core_gba(bs, st, &err, gens->field_char);
 
-                if (!success) {
+                if (err) {
                     printf("Problem with F4, stopped computation.\n");
                     exit(1);
                 }
             }
-            printf("size of basis %u\n", bs->lml);
             /* initialize data for elements to be reduced,
              * NOTE: Don't initialize BEFORE running core_f4, bht may
              * change, so hash values of tbr may become wrong. */
             tbr = initialize_basis(st);
-            import_input_data_nf_ff_32(
-                    tbr, bht, st, gens->ngens-normal_form, gens->ngens,
-                    gens->lens, gens->exps, (void *)gens->cfs);
+            tbr->ht = bht;
+            import_input_data(tbr, st, gens->ngens-normal_form, gens->ngens,
+                    gens->lens, gens->exps, (void *)gens->cfs, NULL);
             tbr->ld = tbr->lml  =  normal_form;
-            /* normalize_initial_basis(tbr, st->fc); */
+            /* normalize_initial_basis(tbr, st->gfc); */
             for (int k = 0; k < normal_form; ++k) {
                 tbr->lmps[k]  = k; /* fix input element in tbr */
             }
-            /* compute normal form of last element in tbr */
-            success = core_nf(&tbr, &bht, &st, mul, bs);
 
-            if (!success) {
+            /* generate array for storing multiplier for polynomial
+             * to be reduced by basis */
+            exp_t *mul  = (exp_t *)calloc(bht->evl, sizeof(exp_t));
+            /* compute normal form of last element in tbr */
+            tbr = core_nf(tbr, st, mul, bs, &err);
+
+            if (err) {
                 printf("Problem with normalform, stopped computation.\n");
                 exit(1);
             }
             /* print all reduced elements in tbr, first normal_form ones
              * are the input elements */
-	    printf ("normal form:\n");
-            print_msolve_polynomials_ff(stdout, normal_form,
-					tbr->lml, tbr, bht, st, gens->vnames, 0);
+            print_ff_nf_data(files->out_file, "a", 0, normal_form, tbr, bht, st, gens, 1);
             if (normal_form_matrix > 0) {
                 /* sht and hcm will store the union of the support
                  * of all normal forms in tbr. */
@@ -5217,7 +5008,7 @@ restart:
                 mat_t *mat  = (mat_t *)calloc(1, sizeof(mat_t));
 
                 printf("\nStarts computation of normal form matrix\n");
-                get_normal_form_matrix(tbr, bht, normal_form,
+                get_normal_form_matrix(tbr, tbr->ht, normal_form,
                         st, &sht, &hcm, &mat);
 
                 printf("\n\nLength of union of support of all normal forms: %u\n",
@@ -5277,17 +5068,13 @@ restart:
             }
             /* free and clean up */
             if (bs != NULL) {
-                free_basis(&bs);
+                free_basis_without_hash_table(&bs);
             }
             if (tbr != NULL) {
                 free_basis(&tbr);
             }
             free(st);
             st  = NULL;
-            free_shared_hash_data(bht);
-            if (bht != NULL) {
-                free_hash_table(&bht);
-            }
 
         }
         return 0;
@@ -5303,7 +5090,7 @@ restart:
             const uint32_t prime_start = pow(2, 30);
             const int32_t nr_primes = nr_threads;
             /* initialize stuff */
-            stat_t *st  = initialize_statistics();
+            md_t *st  = allocate_meta_data();
 
             int *invalid_gens       =   NULL;
             int32_t monomial_order  =   0;
@@ -5346,12 +5133,10 @@ restart:
              * the basis elements stored in the trace */
             ht_t *tht = initialize_secondary_hash_table(bht, st);
             /* read in ideal, move coefficients to integers */
-            import_input_data(bs_qq, bht, st, gens->lens, gens->exps,
+            import_input_data(bs_qq, st, 0, st->ngens_input, gens->lens, gens->exps,
                     (void *)gens->mpz_cfs, invalid_gens);
 
-            if (st->info_level > 0) {
-                print_initial_statistics(stderr, st);
-            }
+            print_initial_statistics(stderr, st);
 
             /* for faster divisibility checks, needs to be done after we have
              * read some input data for applying heuristics */
@@ -5370,7 +5155,7 @@ restart:
             bs_t **bs = (bs_t **)calloc((unsigned long)st->nprimes, sizeof(bs_t *));
 
             /* initialize tracer */
-            trace_t *trace  = initialize_trace();
+            trace_t *trace  = initialize_trace(bs_qq, st);
 
             srand(time(0));
             uint32_t prime = next_prime(1<<30);
@@ -5411,8 +5196,8 @@ restart:
             /* timings */
             ct1 = cputime();
             rt1 = realtime();
-            st->overall_ctime = ct1 - ct0;
-            st->overall_rtime = rt1 - rt0;
+            st->f4_ctime = ct1 - ct0;
+            st->f4_rtime = rt1 - rt0;
 
             if (st->info_level > 1) {
                 print_final_statistics(stderr, st);
@@ -5484,7 +5269,7 @@ restart:
             bs_t *sat_qq   = NULL;
 
             /* initialize stuff */
-            stat_t *st  = initialize_statistics();
+            md_t *st  = allocate_meta_data();
 
             int *invalid_gens       =   NULL;
             int32_t monomial_order  =   0;
@@ -5522,19 +5307,17 @@ restart:
              *******************/
             bs_t *bs_qq = initialize_basis(st);
             /* initialize basis hash table, update hash table, symbolic hash table */
-            ht_t *bht = initialize_basis_hash_table(st);
+            ht_t *bht = bs_qq->ht;
             /* hash table to store the hashes of the multiples of
              * the basis elements stored in the trace */
             ht_t *tht = initialize_secondary_hash_table(bht, st);
             /* read in ideal, move coefficients to integers */
-            import_input_data(bs_qq, bht, st, gens->lens, gens->exps,
+            import_input_data(bs_qq, st, 0, st->ngens_input, gens->lens, gens->exps,
                     (void *)gens->mpz_cfs, invalid_gens);
             free(invalid_gens);
             invalid_gens    =   NULL;
 
-            if (st->info_level > 0) {
-                print_initial_statistics(stderr, st);
-            }
+            print_initial_statistics(stderr, st);
 
             /* for faster divisibility checks, needs to be done after we have
              * read some input data for applying heuristics */
@@ -5553,7 +5336,9 @@ restart:
             bs_t **bs = (bs_t **)calloc((unsigned long)st->nprimes, sizeof(bs_t *));
 
             /* initialize tracer */
-            trace_t *trace  = initialize_trace();
+            trace_t *trace  = initialize_trace(bs_qq, st);
+
+            st->tr = trace;
 
             srand(time(0));
             uint32_t prime = next_prime(1<<30);
@@ -5574,11 +5359,12 @@ restart:
                 }
             }
             sat_qq = initialize_basis(st);
-            import_input_data_nf_qq(
-                    sat_qq, bht, st, gens->ngens-saturate, gens->ngens,
-                    gens->lens, gens->exps, (void *)gens->mpz_cfs);
+            sat_qq->ht = bht;
+            import_input_data(
+                    sat_qq, st, gens->ngens-saturate, gens->ngens,
+                    gens->lens, gens->exps, (void *)gens->mpz_cfs, NULL);
             sat_qq->ld = sat_qq->lml  =  saturate;
-            /* normalize_initial_basis(tbr, st->fc); */
+            /* normalize_initial_basis(tbr, st->gfc); */
             for (int k = 0; k < saturate; ++k) {
                 sat_qq->lmps[k]  = k; /* fix input element in tbr */
             }
@@ -5599,12 +5385,11 @@ restart:
             /* timings */
             ct1 = cputime();
             rt1 = realtime();
-            st->overall_ctime = ct1 - ct0;
-            st->overall_rtime = rt1 - rt0;
+            st->f4_ctime = ct1 - ct0;
+            st->f4_rtime = rt1 - rt0;
 
-            if (st->info_level > 1) {
-                print_final_statistics(stderr, st);
-            }
+            get_and_print_final_statistics(stderr, st, bs_qq);
+
             if(info_level){
                 fprintf(stderr, "\nStarts trace based multi-modular computations\n");
             }
@@ -5629,12 +5414,11 @@ restart:
             /* timings */
             ct1 = cputime();
             rt1 = realtime();
-            st->overall_ctime = ct1 - ct0;
-            st->overall_rtime = rt1 - rt0;
+            st->f4_ctime = ct1 - ct0;
+            st->f4_rtime = rt1 - rt0;
 
-            if (st->info_level > 1) {
-                print_final_statistics(stderr, st);
-            }
+            get_and_print_final_statistics(stderr, st, bs_qq);
+
             if(info_level){
                 fprintf(stderr, "\nStarts trace based multi-modular computations\n");
             }

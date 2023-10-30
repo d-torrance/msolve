@@ -45,7 +45,27 @@ double omp_get_wtime(void) { return realtime();}
 #include "linalg-fglm.c"
 #include "matrix-mult.c"
 #include "berlekamp_massey.c"
+#include "libfglm.h"
 
+#ifdef BLOCKWIED
+#include <flint/nmod_mat.h>
+#include <flint/nmod_poly.h>
+#include <flint/nmod_poly_mat.h>
+#include <flint/fmpz_mat.h>
+#include "../upolmat/nmod_mat_extra.h"
+#include "../upolmat/nmod_mat_left_nullspace.c"
+#include "../upolmat/nmod_mat_permute_rows.c"
+#include "../upolmat/nmod_mat_poly.h"
+#include "../upolmat/nmod_mat_poly_mem.c"
+#include "../upolmat/nmod_mat_poly_set_from.c"
+#include "../upolmat/nmod_mat_poly_arith.c"
+#include "../upolmat/nmod_mat_poly_mbasis.c"
+#include "../upolmat/nmod_mat_poly_shift.c"
+#include "../upolmat/nmod_poly_mat_utils.h"
+#include "../upolmat/nmod_poly_mat_utils.c"
+#include "../upolmat/nmod_poly_mat_pmbasis.h"
+#include "../upolmat/nmod_poly_mat_pmbasis.c"
+#endif
 
 void display_nmod_poly(FILE *file, nmod_poly_t pol){
   fprintf(file, "[%ld,\n", pol->length-1);
@@ -440,7 +460,7 @@ static inline void sparse_mat_fglm_mult_vec(CF_t *res, sp_matfglm_t *mat,
                                             const uint32_t preinv,
                                             const uint32_t pi1,
                                             const uint32_t pi2,
-					    stat_t *st){
+					    md_t *st){
 
   szmat_t ncols = mat->ncols;
   szmat_t nrows = mat->nrows;
@@ -480,7 +500,7 @@ static inline void sparse_mat_fglm_colon_mult_vec(CF_t *res, sp_matfglmcol_t *ma
 						  const uint32_t preinv,
 						  const uint32_t pi1,
 						  const uint32_t pi2,
-						  stat_t *st){
+						  md_t *st){
 
   szmat_t ncols = mat->ncols;
   szmat_t nrows = mat->nrows;
@@ -646,7 +666,7 @@ static void generate_matrix_sequence(sp_matfglm_t *matxn, fglm_data_t * data,
                                      uint64_t* linvars,
                                      long nvars,
                                      mod_t prime,
-                                     stat_t *st){
+                                     md_t *st){
   uint32_t RED_32 = ((uint64_t)2<<31) % prime;
   uint32_t RED_64 = ((uint64_t)1<<63) % prime;
   RED_64 = (RED_64*2) % prime;
@@ -706,7 +726,7 @@ static void generate_sequence_verif(sp_matfglm_t *matrix, fglm_data_t * data,
 				    uint64_t* linvars,
 				    long nvars,
 				    mod_t prime,
-				    stat_t *st){
+				    md_t *st){
   uint32_t RED_32 = ((uint64_t)2<<31) % prime;
 
 
@@ -1472,7 +1492,7 @@ param_t *nmod_fglm_compute(sp_matfglm_t *matrix, const mod_t prime, const long n
                            uint32_t *lineqs,
                            uint64_t *squvars,
                            const int info_level,
-			   stat_t *st){
+			   md_t *st){
 #if DEBUGFGLM > 0
   fprintf(stderr, "prime = %u\n", prime);
 #endif
@@ -1525,6 +1545,52 @@ param_t *nmod_fglm_compute(sp_matfglm_t *matrix, const mod_t prime, const long n
   fprintf(stderr, "Matrix sequence computed\n");
   fprintf(stderr, "Elapsed time : %.2f\n", et0);
   fprintf(stderr, "Implementation to be completed\n");
+
+  // pick some nbrows, nbcols, length
+  // (matrix sequence has "2*glen" matrices of size "gdim x gdim"
+  slong gdim = 16;
+  slong glen = 4096;
+  nmod_mat_poly_t matp;
+  nmod_mat_poly_init2(matp, 2*gdim, gdim, prime, 2*glen);
+  // top gdim x gdim submatrix matrices is formed from the matrix sequence
+  // for the moment, let's take random coefficients
+  flint_rand_t state;
+  flint_randinit(state);
+  srand(time(NULL));
+  flint_randseed(state, rand(), rand());
+  for (slong k = 0; k < 2*glen; k++)
+  {
+    mp_ptr vec = (matp->coeffs + k)->entries;
+    for (slong i = 0; i < gdim*gdim; i++)
+      vec[i] = n_randint(state, matp->mod.n);
+  }
+  // bottom gdim x gdim submatrix is -identity
+  for (slong i = 0; i < gdim; i++)
+    nmod_mat_entry(matp->coeffs + 0, gdim+i, i) = prime-1;
+
+  // convert to poly_mat pmat, and forget matp
+  double st_recon = omp_get_wtime();
+  nmod_poly_mat_t pmat;
+  nmod_poly_mat_set_from_mat_poly(pmat, matp);
+	nmod_mat_poly_clear(matp);
+
+  // fraction reconstruction
+  nmod_poly_mat_t appbas;
+  nmod_poly_mat_init(appbas, 2*gdim, 2*gdim, prime);
+  nmod_poly_mat_pmbasis(appbas, NULL, pmat, 2*glen);
+	// extract generator and forget appbas
+  nmod_poly_mat_t gen;
+  nmod_poly_mat_init(gen, gdim, gdim, prime);
+  for (slong i = 0; i < gdim; i++)
+    for (slong j = 0; j < gdim; j++)
+      nmod_poly_swap(gen->rows[i] + j, appbas->rows[i] + j);
+  nmod_poly_mat_clear(appbas);
+
+  double tt_recon = omp_get_wtime() - st_recon;
+  fprintf(stderr, "Matrix generator computed\n");
+  fprintf(stderr, "Elapsed time : %.2f\n", tt_recon);
+  fprintf(stderr, "Implementation to be completed\n");
+
   exit(1);
 #else
   generate_sequence_verif(matrix, data, block_size, dimquot,
@@ -1619,7 +1685,7 @@ param_t *nmod_fglm_compute_trace_data(sp_matfglm_t *matrix, mod_t prime,
                                       fglm_data_t **bdata,
                                       fglm_bms_data_t **bdata_bms,
                                       int *success,
-				      stat_t *st){
+				      md_t *st){
 #if DEBUGFGLM > 0
   fprintf(stderr, "prime = %u\n", prime);
 #endif
@@ -1775,7 +1841,7 @@ int nmod_fglm_compute_apply_trace_data(sp_matfglm_t *matrix,
                                        fglm_bms_data_t *data_bms,
                                        const long deg_init,
                                        const int info_level,
-				       stat_t *st){
+				       md_t *st){
 #if DEBUGFGLM > 0
   fprintf(stderr, "prime = %u\n", prime);
 #endif
@@ -1910,7 +1976,7 @@ guess_sequence_colon(sp_matfglmcol_t *matrix, fglm_data_t * data,
 		     szmat_t block_size, long dimquot, mod_t prime,
 		     param_t * param, fglm_bms_data_t * data_bms,
 		     uint64_t *linvars, uint32_t *lineqs, const long nvars,
-		     long *dim_ptr, const int info_level, stat_t *st){
+		     long *dim_ptr, const int info_level, md_t *st){
   /* printf ("modulo %d\n",prime); */
   /* printf ("size   %d\n",matrix->ncols); */
   /* printf ("leftvec\n"); */
@@ -2018,7 +2084,7 @@ static inline void generate_sequence_colon(sp_matfglmcol_t *matrix,
 					   fglm_data_t * data,
 					   CF_t * leftvec,
 					   szmat_t block_size, long dimquot,
-					   mod_t prime, stat_t *st){
+					   mod_t prime, md_t *st){
 
   uint32_t RED_32 = ((uint64_t)2<<31) % prime;
 
@@ -2128,7 +2194,7 @@ param_t *nmod_fglm_guess_colon(sp_matfglmcol_t *matrix,
 			       uint32_t *lineqs,
 			       uint64_t *squvars,
 			       const int info_level,
-			       stat_t *st){
+			       md_t *st){
 #if DEBUGFGLM > 0
   fprintf(stderr, "prime = %u\n", prime);
 #endif

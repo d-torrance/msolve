@@ -160,7 +160,7 @@ static int is_kernel_trivial(
         hm_t **upivs, /* already sorted by increasing pivot */
         const len_t ncl, /* number of columns left, all of them are zero */
         const len_t ncr, /* number of columns right */
-        const stat_t * const st
+        const md_t * const st
         )
 {
     len_t i, j;
@@ -307,7 +307,10 @@ static hm_t *reduce_dense_row_by_known_pivots_sparse_17_bit(
         hm_t * const * const pivs,
         const hi_t dpiv,    /* pivot of dense row at the beginning */
         const hm_t tmp_pos, /* position of new coeffs array in tmpcf */
-        stat_t *st
+        const len_t mh,     /* multiplier hash for tracing */
+        const len_t bi,     /* basis index of generating element */
+        const len_t tr,     /* trace data? */
+        md_t *st
         )
 {
     hi_t i, j, k;
@@ -319,6 +322,12 @@ static hm_t *reduce_dense_row_by_known_pivots_sparse_17_bit(
     const len_t ncl             = mat->ncl;
     cf32_t * const * const mcf  = mat->cf_32;
 
+    rba_t *rba;
+    if (tr > 0) {
+        rba = mat->rba[tmp_pos];
+    } else {
+        rba = NULL;
+    }
 #ifdef HAVE_AVX2
     int64_t res[4];
     __m256i redv, mulv, prodv, drv, resv;
@@ -345,6 +354,10 @@ static hm_t *reduce_dense_row_by_known_pivots_sparse_17_bit(
         dts   = pivs[i];
         if (i < ncl) {
             cfs   = bs->cf_32[dts[COEFFS]];
+            /* set corresponding bit of reducer in reducer bit array */
+            if (tr > 0) {
+                rba[i/32] |= 1U << (i % 32);
+            }
         } else {
             cfs   = mcf[dts[COEFFS]];
         }
@@ -420,6 +433,8 @@ static hm_t *reduce_dense_row_by_known_pivots_sparse_17_bit(
             j++;
         }
     }
+    row[BINDEX]   = bi;
+    row[MULT]     = mh;
     row[COEFFS]   = tmp_pos;
     row[PRELOOP]  = j % UNROLL;
     row[LENGTH]   = j;
@@ -438,7 +453,7 @@ static hm_t *trace_reduce_dense_row_by_known_pivots_sparse_17_bit(
         const hm_t tmp_pos, /* position of new coeffs array in tmpcf */
         const len_t mh,     /* multiplier hash for tracing */
         const len_t bi,     /* basis index of generating element */
-        stat_t *st
+        md_t *st
         )
 {
     hi_t i, j, k;
@@ -524,7 +539,7 @@ static hm_t *reduce_dense_row_by_known_pivots_sparse_up_to_ff_31_bit(
         const hm_t tmp_pos, /* position of new coeffs array in tmpcf */
         const len_t end,   /* column index up to which we reduce */
         const len_t ncols,
-        stat_t *st
+        md_t *st
         )
 {
     hi_t i, j, k;
@@ -665,7 +680,7 @@ static hm_t *sba_reduce_dense_row_by_known_pivots_sparse_31_bit(
         const hm_t sm,      /* signature monomial of row reduced */
         const len_t si,     /* signature index of row reduced */
         const len_t ri,     /* index of row in matrix */
-        stat_t *st
+        md_t *st
         )
 {
     len_t i, j, k;
@@ -820,7 +835,10 @@ static hm_t *reduce_dense_row_by_known_pivots_sparse_31_bit(
         hm_t *const *pivs,
         const hi_t dpiv,    /* pivot of dense row at the beginning */
         const hm_t tmp_pos, /* position of new coeffs array in tmpcf */
-        stat_t *st
+        const len_t mh,     /* multiplier hash for tracing */
+        const len_t bi,     /* basis index of generating element */
+        const len_t tr,     /* trace data? */
+        md_t *st
         )
 {
     hi_t i, j, k;
@@ -832,6 +850,13 @@ static hm_t *reduce_dense_row_by_known_pivots_sparse_31_bit(
     const len_t ncols           = mat->nc;
     const len_t ncl             = mat->ncl;
     cf32_t * const * const mcf  = mat->cf_32;
+
+    rba_t *rba;
+    if (tr > 0) {
+        rba = mat->rba[tmp_pos];
+    } else {
+        rba = NULL;
+    }
 #ifdef HAVE_AVX2
     int64_t res[4] __attribute__((aligned(32)));
     __m256i cmpv, redv, drv, mulv, prodv, resv, rresv;
@@ -860,6 +885,10 @@ static hm_t *reduce_dense_row_by_known_pivots_sparse_31_bit(
         dts   = pivs[i];
         if (i < ncl) {
             cfs   = bs->cf_32[dts[COEFFS]];
+            /* set corresponding bit of reducer in reducer bit array */
+            if (tr > 0) {
+                rba[i/32] |= 1U << (i % 32);
+            }
         } else {
             cfs   = mcf[dts[COEFFS]];
         }
@@ -946,6 +975,8 @@ static hm_t *reduce_dense_row_by_known_pivots_sparse_31_bit(
             j++;
         }
     }
+    row[BINDEX]   = bi;
+    row[MULT]     = mh;
     row[COEFFS]   = tmp_pos;
     row[PRELOOP]  = j % UNROLL;
     row[LENGTH]   = j;
@@ -966,7 +997,7 @@ static hm_t *reduce_dense_row_by_known_pivots_sparse_sat_ff_31_bit(
         const hm_t tmp_pos, /* position of new coeffs arrays */
         const len_t sat_ld, /* number of current multipliers */
         const len_t ncols,  /* number of columns */
-        stat_t *st,
+        md_t *st,
         const len_t ncl
         )
 {
@@ -1199,7 +1230,7 @@ static hm_t *trace_reduce_dense_row_by_known_pivots_sparse_31_bit(
         const hm_t tmp_pos, /* position of new coeffs array in tmpcf */
         const len_t mh,     /* multiplier hash for tracing */
         const len_t bi,     /* basis index of generating element */
-        stat_t *st
+        md_t *st
         )
 {
     hi_t i, j, k;
@@ -1346,7 +1377,10 @@ static hm_t *reduce_dense_row_by_known_pivots_sparse_32_bit(
         hm_t *const *pivs,
         const hi_t dpiv,    /* pivot of dense row at the beginning */
         const hm_t tmp_pos, /* position of new coeffs array in tmpcf */
-        stat_t *st
+        const len_t mh,     /* multiplier hash for tracing */
+        const len_t bi,     /* basis index of generating element */
+        const len_t tr,     /* trace data? */
+        md_t *st
         )
 {
     hi_t i, j, k;
@@ -1357,6 +1391,12 @@ static hm_t *reduce_dense_row_by_known_pivots_sparse_32_bit(
     const len_t ncols           = mat->nc;
     const len_t ncl             = mat->ncl;
     cf32_t * const * const mcf  = mat->cf_32;
+    rba_t *rba;
+    if (tr > 0) {
+        rba = mat->rba[tmp_pos];
+    } else {
+        rba = NULL;
+    }
     const uint64_t mask = (uint32_t)0xFFFFFFFF;
     uint64_t RED_32     = ((uint64_t)2<<31) % st->fc;
     uint64_t RED_64     = ((uint64_t)1<<63) % st->fc;
@@ -1392,6 +1432,10 @@ static hm_t *reduce_dense_row_by_known_pivots_sparse_32_bit(
         dts   = pivs[i];
         if (i < ncl) {
             cfs   = bs->cf_32[dts[COEFFS]];
+            /* set corresponding bit of reducer in reducer bit array */
+            if (tr > 0) {
+                rba[i/32] |= 1U << (i % 32);
+            }
         } else {
             cfs   = mcf[dts[COEFFS]];
         }
@@ -1424,6 +1468,8 @@ static hm_t *reduce_dense_row_by_known_pivots_sparse_32_bit(
             j++;
         }
     }
+    row[BINDEX]         = bi;
+    row[MULT]           = mh;
     row[COEFFS]         = tmp_pos;
     row[PRELOOP]        = j % UNROLL;
     row[LENGTH]         = j;
@@ -1442,7 +1488,7 @@ static hm_t *trace_reduce_dense_row_by_known_pivots_sparse_32_bit(
         const hm_t tmp_pos, /* position of new coeffs array in tmpcf */
         const len_t mh,     /* multiplier hash for tracing */
         const len_t bi,     /* basis index of generating element */
-        stat_t *st
+        md_t *st
         )
 {
     hi_t i, j, k;
@@ -1998,7 +2044,7 @@ static cf32_t *reduce_dense_row_by_dense_new_pivots_31_bit(
 static void probabilistic_sparse_reduced_echelon_form_ff_32(
         mat_t *mat,
         const bs_t * const bs,
-        stat_t *st
+        md_t *st
         )
 {
     len_t i = 0, j, k, l, m;
@@ -2106,7 +2152,7 @@ static void probabilistic_sparse_reduced_echelon_form_ff_32(
                     free(npiv);
                     npiv  = NULL;
                     npiv  = reduce_dense_row_by_known_pivots_sparse_ff_32(
-                            drl, mat, bs, pivs, sc, cfp, st);
+                            drl, mat, bs, pivs, sc, cfp, 0, 0, 0, st);
                     if (!npiv) {
                         bctr  = nrbl;
                         break;
@@ -2155,6 +2201,8 @@ static void probabilistic_sparse_reduced_echelon_form_ff_32(
             memset(dr, 0, (unsigned long)ncols * sizeof(int64_t));
             cfs = mat->cf_32[pivs[k][COEFFS]];
             cfp = pivs[k][COEFFS];
+            const len_t bi  = pivs[k][BINDEX];
+            const len_t mh  = pivs[k][MULT];
             const len_t os  = pivs[k][PRELOOP];
             const len_t len = pivs[k][LENGTH];
             const hm_t * const ds = pivs[k] + OFFSET;
@@ -2173,7 +2221,7 @@ static void probabilistic_sparse_reduced_echelon_form_ff_32(
             pivs[k] = NULL;
             pivs[k] = mat->tr[npivs++] =
                 reduce_dense_row_by_known_pivots_sparse_ff_32(
-                        dr, mat, bs, pivs, sc, cfp, st);
+                        dr, mat, bs, pivs, sc, cfp, mh, bi, 0, st);
         }
     }
     free(mat->rr);
@@ -2186,13 +2234,13 @@ static void probabilistic_sparse_reduced_echelon_form_ff_32(
     dr  = NULL;
 
     mat->tr = realloc(mat->tr, (unsigned long)npivs * sizeof(hi_t *));
-    mat->np = mat->nr = mat->sz = npivs;
+    st->np = mat->np = mat->nr = mat->sz = npivs;
 }
 
 static void sba_echelon_form_ff_32(
         smat_t *smat,
         crit_t *syz,
-        stat_t *st,
+        md_t *st,
         const ht_t * const ht
         )
 {
@@ -2278,8 +2326,9 @@ static void sba_echelon_form_ff_32(
 
 static void exact_sparse_reduced_echelon_form_ff_32(
         mat_t *mat,
+        const bs_t * const tbr,
         const bs_t * const bs,
-        stat_t *st
+        md_t *st
         )
 {
     len_t i = 0, j, k;
@@ -2289,6 +2338,8 @@ static void exact_sparse_reduced_echelon_form_ff_32(
     const len_t nrl   = mat->nrl;
     const len_t ncr   = mat->ncr;
     const len_t ncl   = mat->ncl;
+
+    len_t bad_prime = 0;
 
     /* we fill in all known lead terms in pivs */
     hm_t **pivs   = (hm_t **)calloc((unsigned long)ncols, sizeof(hm_t *));
@@ -2305,44 +2356,78 @@ static void exact_sparse_reduced_echelon_form_ff_32(
     private(i, j, k, sc) \
     schedule(dynamic)
     for (i = 0; i < nrl; ++i) {
-        int64_t *drl  = dr + (omp_get_thread_num() * ncols);
-        hm_t *npiv      = upivs[i];
-        cf32_t *cfs     = bs->cf_32[npiv[COEFFS]];
-        const len_t os  = npiv[PRELOOP];
-        const len_t len = npiv[LENGTH];
-        const hm_t * const ds = npiv + OFFSET;
-        k = 0;
-        memset(drl, 0, (unsigned long)ncols * sizeof(int64_t));
-        for (j = 0; j < os; ++j) {
-            drl[ds[j]]  = (int64_t)cfs[j];
-        }
-        for (; j < len; j += UNROLL) {
-            drl[ds[j]]    = (int64_t)cfs[j];
-            drl[ds[j+1]]  = (int64_t)cfs[j+1];
-            drl[ds[j+2]]  = (int64_t)cfs[j+2];
-            drl[ds[j+3]]  = (int64_t)cfs[j+3];
-        }
-        cfs = NULL;
-        do {
-            sc  = npiv[OFFSET];
-            free(npiv);
-            free(cfs);
-            npiv  = reduce_dense_row_by_known_pivots_sparse_ff_32(
-                    drl, mat, bs, pivs, sc, i, st);
-            if (!npiv) {
-                break;
+        if (bad_prime == 0) {
+            int64_t *drl  = dr + (omp_get_thread_num() * ncols);
+            hm_t *npiv      = upivs[i];
+            cf32_t *cfs     = tbr->cf_32[npiv[COEFFS]];
+            const len_t os  = npiv[PRELOOP];
+            const len_t len = npiv[LENGTH];
+            const len_t bi  = npiv[BINDEX];
+            const len_t mh  = npiv[MULT];
+            const hm_t * const ds = npiv + OFFSET;
+            k = 0;
+            memset(drl, 0, (unsigned long)ncols * sizeof(int64_t));
+            for (j = 0; j < os; ++j) {
+                drl[ds[j]]  = (int64_t)cfs[j];
             }
-            /* normalize coefficient array
-             * NOTE: this has to be done here, otherwise the reduction may
-             * lead to wrong results in a parallel computation since other
-             * threads might directly use the new pivot once it is synced. */
-            if (mat->cf_32[npiv[COEFFS]][0] != 1) {
-                normalize_sparse_matrix_row_ff_32(
-                        mat->cf_32[npiv[COEFFS]], npiv[PRELOOP], npiv[LENGTH], st->fc);
+            for (; j < len; j += UNROLL) {
+                drl[ds[j]]    = (int64_t)cfs[j];
+                drl[ds[j+1]]  = (int64_t)cfs[j+1];
+                drl[ds[j+2]]  = (int64_t)cfs[j+2];
+                drl[ds[j+3]]  = (int64_t)cfs[j+3];
             }
-            k   = __sync_bool_compare_and_swap(&pivs[npiv[OFFSET]], NULL, npiv);
-            cfs = mat->cf_32[npiv[COEFFS]];
-        } while (!k);
+            cfs = NULL;
+            do {
+                sc  = npiv[OFFSET];
+                free(npiv);
+                free(cfs);
+                npiv  = mat->tr[i] = reduce_dense_row_by_known_pivots_sparse_ff_32(
+                        drl, mat, bs, pivs, sc, i, mh, bi, st->trace_level == LEARN_TRACER, st);
+                if (st->nf > 0) {
+                    if (!npiv) {
+                        mat->tr[i]  = NULL;
+                        break;
+                    }
+                    mat->tr[i]  = npiv;
+                    cfs = mat->cf_32[npiv[COEFFS]];
+                    break;
+                } else {
+                    if (!npiv) {
+                        if (st->trace_level == APPLY_TRACER) {
+                            bad_prime = 1;
+                        }
+                        break;
+                    }
+                    /* normalize coefficient array
+                     * NOTE: this has to be done here, otherwise the reduction may
+                     * lead to wrong results in a parallel computation since other
+                     * threads might directly use the new pivot once it is synced. */
+                    if (mat->cf_32[npiv[COEFFS]][0] != 1) {
+                        normalize_sparse_matrix_row_ff_32(
+                                mat->cf_32[npiv[COEFFS]], npiv[PRELOOP], npiv[LENGTH], st->fc);
+                    }
+                    k   = __sync_bool_compare_and_swap(&pivs[npiv[OFFSET]], NULL, npiv);
+                    cfs = mat->cf_32[npiv[COEFFS]];
+                }
+            } while (!k);
+        }
+    }
+
+    if (bad_prime == 1) {
+        for (i = 0; i < ncl+ncr; ++i) {
+            free(pivs[i]);
+            pivs[i] = NULL;
+        }
+        mat->np = 0;
+        if (st->info_level > 0) {
+            fprintf(stderr, "Zero reduction while applying tracer, bad prime.\n");
+        }
+        return;
+    }
+
+    /* construct the trace */
+    if (st->trace_level == LEARN_TRACER) {
+        construct_trace(st->tr, mat);
     }
 
     /* we do not need the old pivots anymore */
@@ -2353,46 +2438,51 @@ static void exact_sparse_reduced_echelon_form_ff_32(
 
     len_t npivs = 0; /* number of new pivots */
 
-    dr      = realloc(dr, (unsigned long)ncols * sizeof(int64_t));
-    mat->tr = realloc(mat->tr, (unsigned long)ncr * sizeof(hm_t *));
+    if (st->nf == 0) {
+        dr      = realloc(dr, (unsigned long)ncols * sizeof(int64_t));
+        mat->tr = realloc(mat->tr, (unsigned long)ncr * sizeof(hm_t *));
 
-    /* interreduce new pivots */
-    cf32_t *cfs;
-    hm_t cf_array_pos;
-    for (i = 0; i < ncr; ++i) {
-        k = ncols-1-i;
-        if (pivs[k]) {
-            memset(dr, 0, (unsigned long)ncols * sizeof(int64_t));
-            cfs = mat->cf_32[pivs[k][COEFFS]];
-            cf_array_pos    = pivs[k][COEFFS];
-            const len_t os  = pivs[k][PRELOOP];
-            const len_t len = pivs[k][LENGTH];
-            const hm_t * const ds = pivs[k] + OFFSET;
-            sc  = ds[0];
-            for (j = 0; j < os; ++j) {
-                dr[ds[j]] = (int64_t)cfs[j];
+        /* interreduce new pivots */
+        cf32_t *cfs;
+        hm_t cf_array_pos;
+        for (i = 0; i < ncr; ++i) {
+            k = ncols-1-i;
+            if (pivs[k]) {
+                memset(dr, 0, (unsigned long)ncols * sizeof(int64_t));
+                cfs = mat->cf_32[pivs[k][COEFFS]];
+                cf_array_pos    = pivs[k][COEFFS];
+                const len_t os  = pivs[k][PRELOOP];
+                const len_t len = pivs[k][LENGTH];
+                const len_t bi  = pivs[k][BINDEX];
+                const len_t mh  = pivs[k][MULT];
+                const hm_t * const ds = pivs[k] + OFFSET;
+                sc  = ds[0];
+                for (j = 0; j < os; ++j) {
+                    dr[ds[j]] = (int64_t)cfs[j];
+                }
+                for (; j < len; j += UNROLL) {
+                    dr[ds[j]]    = (int64_t)cfs[j];
+                    dr[ds[j+1]]  = (int64_t)cfs[j+1];
+                    dr[ds[j+2]]  = (int64_t)cfs[j+2];
+                    dr[ds[j+3]]  = (int64_t)cfs[j+3];
+                }
+                free(pivs[k]);
+                free(cfs);
+                pivs[k] = NULL;
+                pivs[k] = mat->tr[npivs++] =
+                    reduce_dense_row_by_known_pivots_sparse_ff_32(
+                            dr, mat, bs, pivs, sc, cf_array_pos, mh, bi, 0, st);
             }
-            for (; j < len; j += UNROLL) {
-                dr[ds[j]]    = (int64_t)cfs[j];
-                dr[ds[j+1]]  = (int64_t)cfs[j+1];
-                dr[ds[j+2]]  = (int64_t)cfs[j+2];
-                dr[ds[j+3]]  = (int64_t)cfs[j+3];
-            }
-            free(pivs[k]);
-            free(cfs);
-            pivs[k] = NULL;
-            pivs[k] = mat->tr[npivs++] =
-                reduce_dense_row_by_known_pivots_sparse_ff_32(
-                        dr, mat, bs, pivs, sc, cf_array_pos, st);
         }
+        mat->tr = realloc(mat->tr, (unsigned long)npivs * sizeof(hi_t *));
+        st->np = mat->np = mat->nr = mat->sz = npivs;
+    } else {
+        st->np = mat->np = mat->nr = mat->sz = nrl;
     }
     free(pivs);
     pivs  = NULL;
     free(dr);
     dr  = NULL;
-
-    mat->tr = realloc(mat->tr, (unsigned long)npivs * sizeof(hi_t *));
-    mat->np = mat->nr = mat->sz = npivs;
 }
 
 static void exact_sparse_reduced_echelon_form_sat_ff_32(
@@ -2400,14 +2490,15 @@ static void exact_sparse_reduced_echelon_form_sat_ff_32(
         mat_t *mat,
         bs_t *kernel,
         const bs_t * const bs,
-        stat_t *st
+        md_t *st
         )
 {
     len_t i = 0, j, k;
     hi_t sc = 0;    /* starting column */
 
-    double rt0, rt1;
-    rt0 = realtime();
+    double rt, ct;
+    rt = realtime();
+    ct = cputime();
 
     const len_t ncols = mat->nc;
     const len_t nrl   = mat->nrl;
@@ -2466,6 +2557,8 @@ static void exact_sparse_reduced_echelon_form_sat_ff_32(
         npiv  = reduce_dense_row_by_known_pivots_sparse_up_to_ff_31_bit(
                 drl, sat, bs, pivs, sc, cf_idx, i, ncl, ncols, st);
         if (!npiv) {
+#pragma omp critical
+            {
             sat->hm[i]  = NULL;
             kernel->hm[kernel->ld]    = (hm_t *)malloc(
                     (unsigned long)(OFFSET+1) * sizeof(hm_t));
@@ -2477,6 +2570,7 @@ static void exact_sparse_reduced_echelon_form_sat_ff_32(
             kernel->hm[kernel->ld][COEFFS]  = kernel->ld;
             kernel->cf_32[kernel->ld][0]    = 1;
             kernel->ld++;
+            }
             continue;
         }
         /* write non zero normal form to sat for reusage in a later
@@ -2496,10 +2590,11 @@ static void exact_sparse_reduced_echelon_form_sat_ff_32(
     upivs     = NULL;
     upivs     = (hm_t **)calloc((unsigned long)sat->ld, sizeof(hm_t *));
     len_t ctr = 0;
-    /* timings */
-    rt1 = realtime();
 
-    printf("        normal form time %12.2f sec\n", rt1-rt0);
+    if (st->info_level > 1) {
+      printf("        normal form time");
+    }
+    print_sat_nf_round_timings(stdout, st, rt, ct);
     /* compute kernel */
     for (i = 0; i < sat->ld; ++i) {
         if (sat->hm[i] != NULL) {
@@ -2628,91 +2723,11 @@ static void exact_sparse_reduced_echelon_form_sat_ff_32(
     drm   = NULL;
 }
 
-static void exact_sparse_reduced_echelon_form_nf_ff_32(
-        mat_t *mat,
-        const bs_t * const tbr,
-        const bs_t * const bs,
-        stat_t *st
-        )
-{
-    len_t i = 0, j;
-    hi_t sc = 0;    /* starting column */
-
-    const len_t ncols = mat->nc;
-    const len_t nrl   = mat->nrl;
-    const len_t ncl   = mat->ncl;
-
-    /* we fill in all known lead terms in pivs */
-    hm_t **pivs   = (hm_t **)calloc((unsigned long)ncols, sizeof(hm_t *));
-    memcpy(pivs, mat->rr, (unsigned long)mat->nru * sizeof(hm_t *));
-
-    /* unkown pivot rows we have to reduce with the known pivots first */
-    hm_t **upivs  = mat->tr;
-
-    int64_t *dr  = (int64_t *)malloc(
-            (unsigned long)(st->nthrds * ncols) * sizeof(int64_t));
-    /* mo need to have any sharing dependencies on parallel computation,
-     * no data to be synchronized at this step of the linear algebra */
-#pragma omp parallel for num_threads(st->nthrds) \
-    private(i, j, sc) \
-    schedule(dynamic)
-    for (i = 0; i < nrl; ++i) {
-        int64_t *drl  = dr + (omp_get_thread_num() * ncols);
-        hm_t *npiv      = upivs[i];
-        cf32_t *cfs     = tbr->cf_32[npiv[COEFFS]];
-        const len_t os  = npiv[PRELOOP];
-        const len_t len = npiv[LENGTH];
-        const hm_t * const ds = npiv + OFFSET;
-        memset(drl, 0, (unsigned long)ncols * sizeof(int64_t));
-        for (j = 0; j < os; ++j) {
-            drl[ds[j]]  = (int64_t)cfs[j];
-        }
-        for (; j < len; j += UNROLL) {
-            drl[ds[j]]    = (int64_t)cfs[j];
-            drl[ds[j+1]]  = (int64_t)cfs[j+1];
-            drl[ds[j+2]]  = (int64_t)cfs[j+2];
-            drl[ds[j+3]]  = (int64_t)cfs[j+3];
-        }
-        cfs = NULL;
-        sc  = npiv[OFFSET];
-        free(npiv);
-        free(cfs);
-        npiv  = reduce_dense_row_by_known_pivots_sparse_ff_32(
-                drl, mat, bs, pivs, sc, i, st);
-        if (!npiv) {
-            mat->tr[i]  = NULL;
-            continue;
-        }
-        /* normalize coefficient array
-         * NOTE: this has to be done here, otherwise the reduction may
-         * lead to wrong results in a parallel computation since other
-         * threads might directly use the new pivot once it is synced. */
-        /* if (mat->cf_32[npiv[COEFFS]][0] != 1) {
-         *     normalize_sparse_matrix_row_ff_32(
-         *             mat->cf_32[npiv[COEFFS]], npiv[PRELOOP], npiv[LENGTH], st->fc);
-         * } */
-        mat->tr[i]  = npiv;
-        /* k   = __sync_bool_c#csompare_and_swap(&pivs[npiv[OFFSET]], NULL, npiv); */
-        cfs = mat->cf_32[npiv[COEFFS]];
-    }
-    for (i = 0; i < ncl; ++i) {
-        free(pivs[i]);
-        pivs[i] = NULL;
-    }
-
-    free(pivs);
-    pivs  = NULL;
-    free(dr);
-    dr  = NULL;
-
-    mat->np = mat->nr = mat->sz = nrl;
-}
-
 static void exact_trace_sparse_reduced_echelon_form_ff_32(
         trace_t *trace,
         mat_t *mat,
         const bs_t * const bs,
-        stat_t *st
+        md_t *st
         )
 {
     len_t i = 0, j, k;
@@ -2807,6 +2822,8 @@ static void exact_trace_sparse_reduced_echelon_form_ff_32(
             cf_array_pos    = pivs[k][COEFFS];
             const len_t os  = pivs[k][PRELOOP];
             const len_t len = pivs[k][LENGTH];
+            const len_t bi  = pivs[k][BINDEX];
+            const len_t mh  = pivs[k][MULT];
             const hm_t * const ds = pivs[k] + OFFSET;
             sc  = ds[0];
             for (j = 0; j < os; ++j) {
@@ -2823,7 +2840,7 @@ static void exact_trace_sparse_reduced_echelon_form_ff_32(
             pivs[k] = NULL;
             pivs[k] = mat->tr[npivs++] =
                 reduce_dense_row_by_known_pivots_sparse_ff_32(
-                        dr, mat, bs, pivs, sc, cf_array_pos, st);
+                        dr, mat, bs, pivs, sc, cf_array_pos, mh, bi, 0, st);
         }
     }
     free(pivs);
@@ -2832,13 +2849,13 @@ static void exact_trace_sparse_reduced_echelon_form_ff_32(
     dr  = NULL;
 
     mat->tr = realloc(mat->tr, (unsigned long)npivs * sizeof(hi_t *));
-    mat->np = mat->nr = mat->sz = npivs;
+    st->np = mat->np = mat->nr = mat->sz = npivs;
 }
 
 static int exact_application_sparse_reduced_echelon_form_ff_32(
         mat_t *mat,
         const bs_t * const bs,
-        stat_t *st
+        md_t *st
         )
 {
     len_t i = 0, j, k;
@@ -2871,6 +2888,8 @@ static int exact_application_sparse_reduced_echelon_form_ff_32(
             cf32_t *cfs     = bs->cf_32[npiv[COEFFS]];
             const len_t os  = npiv[PRELOOP];
             const len_t len = npiv[LENGTH];
+            const len_t bi  = npiv[BINDEX];
+            const len_t mh  = npiv[MULT];
             const hm_t * const ds = npiv + OFFSET;
             k = 0;
             memset(drl, 0, (unsigned long)ncols * sizeof(int64_t));
@@ -2889,10 +2908,11 @@ static int exact_application_sparse_reduced_echelon_form_ff_32(
                 free(npiv);
                 free(cfs);
                 npiv  = mat->tr[i]  = reduce_dense_row_by_known_pivots_sparse_ff_32(
-                        drl, mat, bs, pivs, sc, i, st);
+                        drl, mat, bs, pivs, sc, i, mh, bi, 0, st);
                 if (!npiv) {
                     fprintf(stderr, "Unlucky prime detected, row reduced to zero.");
                     flag  = 0;
+                    break;
                 }
 
                 /* normalize coefficient array
@@ -2935,6 +2955,8 @@ static int exact_application_sparse_reduced_echelon_form_ff_32(
             cf_array_pos    = pivs[k][COEFFS];
             const len_t os  = pivs[k][PRELOOP];
             const len_t len = pivs[k][LENGTH];
+            const len_t bi  = pivs[k][BINDEX];
+            const len_t mh  = pivs[k][MULT];
             const hm_t * const ds = pivs[k] + OFFSET;
             sc  = ds[0];
             for (j = 0; j < os; ++j) {
@@ -2951,7 +2973,7 @@ static int exact_application_sparse_reduced_echelon_form_ff_32(
             pivs[k] = NULL;
             pivs[k] = mat->tr[npivs++] =
                 reduce_dense_row_by_known_pivots_sparse_ff_32(
-                        dr, mat, bs, pivs, sc, cf_array_pos, st);
+                        dr, mat, bs, pivs, sc, cf_array_pos, mh, bi, 0, st);
         }
     }
     free(pivs);
@@ -2960,7 +2982,7 @@ static int exact_application_sparse_reduced_echelon_form_ff_32(
     dr  = NULL;
 
     mat->tr = realloc(mat->tr, (unsigned long)npivs * sizeof(hi_t *));
-    mat->np = mat->nr = mat->sz = npivs;
+    st->np = mat->np = mat->nr = mat->sz = npivs;
 
     return 0;
 }
@@ -2968,7 +2990,7 @@ static int exact_application_sparse_reduced_echelon_form_ff_32(
 static cf32_t **sparse_AB_CD_linear_algebra_ff_32(
         mat_t *mat,
         const bs_t * bs,
-        const stat_t * const st
+        md_t *st
         )
 {
     len_t i = 0, j;
@@ -3042,7 +3064,7 @@ static cf32_t **sparse_AB_CD_linear_algebra_ff_32(
         free(drs);
         drs = NULL;
     }
-    mat->np = npivs;
+    st->np = mat->np = npivs;
 
     return drs;
 }
@@ -3086,7 +3108,7 @@ static cf32_t **interreduce_dense_matrix_ff_32(
 static cf32_t **exact_dense_linear_algebra_ff_32(
         cf32_t **dm,
         mat_t *mat,
-        const stat_t * const st
+        md_t *st
         )
 {
     len_t i, j, k, l, npivs;
@@ -3187,7 +3209,7 @@ static cf32_t **exact_dense_linear_algebra_ff_32(
             npivs++;
         }
     }
-    mat->np = npivs;
+    st->np = mat->np = npivs;
 
     free(tbr);
     free(dr);
@@ -3198,7 +3220,7 @@ static cf32_t **exact_dense_linear_algebra_ff_32(
 static cf32_t **probabilistic_dense_linear_algebra_ff_32(
         cf32_t **dm,
         mat_t *mat,
-        const stat_t * const st
+        md_t *st
         )
 {
     len_t i, j, k, l, m, npivs;
@@ -3363,7 +3385,7 @@ static cf32_t **probabilistic_dense_linear_algebra_ff_32(
             npivs++;
         }
     }
-    mat->np = npivs;
+    st->np = mat->np = npivs;
 
     free(mul);
     free(tbr);
@@ -3375,7 +3397,7 @@ static cf32_t **probabilistic_dense_linear_algebra_ff_32(
 static cf32_t **probabilistic_sparse_dense_echelon_form_ff_32(
         mat_t *mat,
         const bs_t * const bs,
-        const stat_t * const st
+        md_t *st
         )
 {
     len_t i = 0, j, k, l, m, npivs;
@@ -3500,7 +3522,7 @@ static cf32_t **probabilistic_sparse_dense_echelon_form_ff_32(
             npivs++;
         }
     }
-    mat->np = npivs;
+    st->np = mat->np = npivs;
 
 
     for (i = 0; i < nru; ++i) {
@@ -3597,8 +3619,9 @@ static void convert_to_sparse_matrix_rows_ff_32(
  * linear algebra */
 static void probabilistic_sparse_linear_algebra_ff_32(
         mat_t *mat,
+        const bs_t * const tbr,
         const bs_t * const bs,
-        stat_t *st
+        md_t *st
         )
 {
     /* timings */
@@ -3620,7 +3643,7 @@ static void probabilistic_sparse_linear_algebra_ff_32(
 
     st->num_zerored += (mat->nrl - mat->np);
     if (st->info_level > 1) {
-        printf("%7d new %7d zero", mat->np, mat->nrl - mat->np);
+        printf("%9d new %7d zero", mat->np, mat->nrl - mat->np);
         fflush(stdout);
     }
 }
@@ -3628,7 +3651,7 @@ static void probabilistic_sparse_linear_algebra_ff_32(
 static void sba_linear_algebra_ff_32(
         smat_t *smat,
         crit_t *syz,
-        stat_t *st,
+        md_t *st,
         const ht_t * const ht
         )
 {
@@ -3651,10 +3674,13 @@ static void sba_linear_algebra_ff_32(
     st->num_zerored += smat->nz;
 }
 
+/* In f4: tbr == bs
+in nf: tbr are the polynomials to be reduced w.r.t. bs */
 static void exact_sparse_linear_algebra_ff_32(
         mat_t *mat,
+        const bs_t * const tbr,
         const bs_t * const bs,
-        stat_t *st
+        md_t *st
         )
 {
     /* timings */
@@ -3666,7 +3692,7 @@ static void exact_sparse_linear_algebra_ff_32(
      * coefficients of new pivot rows */
     mat->cf_32  = realloc(mat->cf_32,
             (unsigned long)mat->nrl * sizeof(cf32_t *));
-    exact_sparse_reduced_echelon_form_ff_32(mat, bs, st);
+    exact_sparse_reduced_echelon_form_ff_32(mat, tbr, bs, st);
 
     /* timings */
     ct1 = cputime();
@@ -3676,7 +3702,7 @@ static void exact_sparse_linear_algebra_ff_32(
 
     st->num_zerored += (mat->nrl - mat->np);
     if (st->info_level > 1) {
-        printf("%7d new %7d zero", mat->np, mat->nrl - mat->np);
+        printf("%9d new %7d zero", mat->np, mat->nrl - mat->np);
         fflush(stdout);
     }
 }
@@ -3710,7 +3736,7 @@ static void compute_kernel_sat_ff_32(
         mat_t *mat,
         bs_t *kernel,
         const bs_t * const bs,
-        stat_t *st
+        md_t *st
         )
 {
     /* timings */
@@ -3730,49 +3756,10 @@ static void compute_kernel_sat_ff_32(
     st->la_rtime  +=  rt1 - rt0;
 }
 
-static void exact_sparse_linear_algebra_nf_ff_32(
-        mat_t *mat,
-        const bs_t * const tbr,
-        const bs_t * const bs,
-        stat_t *st
-        )
-{
-    /* timings */
-    double ct0, ct1, rt0, rt1;
-    ct0 = cputime();
-    rt0 = realtime();
-
-    len_t i;
-
-    /* allocate temporary storage space for sparse
-     * coefficients of new pivot rows */
-    mat->cf_32  = realloc(mat->cf_32,
-            (unsigned long)mat->nrl * sizeof(cf32_t *));
-    exact_sparse_reduced_echelon_form_nf_ff_32(mat, tbr, bs, st);
-
-    /* timings */
-    ct1 = cputime();
-    rt1 = realtime();
-    st->la_ctime  +=  ct1 - ct0;
-    st->la_rtime  +=  rt1 - rt0;
-
-    st->num_zerored += (mat->nrl - mat->np);
-    uint32_t zeroes = 0;
-    for (i = 0; i < mat->nrl; ++i) {
-        if (mat->tr[i] == NULL) {
-	    zeroes  +=  1;
-        }
-    }
-    if (st->info_level > 1) {
-        printf("%7d new    %4d zero", mat->np, zeroes);
-        fflush(stdout);
-    }
-}
-
 static int exact_application_sparse_linear_algebra_ff_32(
         mat_t *mat,
         const bs_t * const bs,
-        stat_t *st
+        md_t *st
         )
 {
     /* timings */
@@ -3796,7 +3783,7 @@ static int exact_application_sparse_linear_algebra_ff_32(
 
     st->num_zerored += (mat->nrl - mat->np);
     if (st->info_level > 1) {
-        printf("%7d new %7d zero", mat->np, mat->nrl - mat->np);
+        printf("%9d new %7d zero", mat->np, mat->nrl - mat->np);
         fflush(stdout);
     }
 
@@ -3807,7 +3794,7 @@ static void exact_trace_sparse_linear_algebra_ff_32(
         trace_t *trace,
         mat_t *mat,
         const bs_t * const bs,
-        stat_t *st
+        md_t *st
         )
 {
     /* timings */
@@ -3829,15 +3816,16 @@ static void exact_trace_sparse_linear_algebra_ff_32(
 
     st->num_zerored += (mat->nrl - mat->np);
     if (st->info_level > 1) {
-        printf("%7d new %7d zero", mat->np, mat->nrl - mat->np);
+        printf("%9d new %7d zero", mat->np, mat->nrl - mat->np);
         fflush(stdout);
     }
 }
 
 static void exact_sparse_dense_linear_algebra_ff_32(
         mat_t *mat,
+        const bs_t * const tbr,
         const bs_t * const bs,
-        stat_t *st
+        md_t *st
         )
 {
     len_t i;
@@ -3878,15 +3866,16 @@ static void exact_sparse_dense_linear_algebra_ff_32(
 
     st->num_zerored += (mat->nrl - mat->np);
     if (st->info_level > 1) {
-        printf("%7d new %7d zero", mat->np, mat->nrl - mat->np);
+        printf("%9d new %7d zero", mat->np, mat->nrl - mat->np);
         fflush(stdout);
     }
 }
 
 static void probabilistic_sparse_dense_linear_algebra_ff_32_2(
         mat_t *mat,
+        const bs_t * const tbr,
         const bs_t * const bs,
-        stat_t *st
+        md_t *st
         )
 {
     len_t i;
@@ -3927,15 +3916,16 @@ static void probabilistic_sparse_dense_linear_algebra_ff_32_2(
 
     st->num_zerored += (mat->nrl - mat->np);
     if (st->info_level > 1) {
-        printf("%7d new %7d zero", mat->np, mat->nrl - mat->np);
+        printf("%9d new %7d zero", mat->np, mat->nrl - mat->np);
         fflush(stdout);
     }
 }
 
 static void probabilistic_sparse_dense_linear_algebra_ff_32(
         mat_t *mat,
+        const bs_t * const tbr,
         const bs_t * const bs,
-        stat_t *st
+        md_t *st
         )
 {
     len_t i;
@@ -3974,7 +3964,7 @@ static void probabilistic_sparse_dense_linear_algebra_ff_32(
 
     st->num_zerored += (mat->nrl - mat->np);
     if (st->info_level > 1) {
-        printf("%7d new %7d zero", mat->np, mat->nrl - mat->np);
+        printf("%9d new %7d zero", mat->np, mat->nrl - mat->np);
         fflush(stdout);
     }
 }
@@ -3982,7 +3972,7 @@ static void probabilistic_sparse_dense_linear_algebra_ff_32(
 static void interreduce_matrix_rows_ff_32(
         mat_t *mat,
         bs_t *bs,
-        stat_t *st,
+        md_t *st,
         const int free_basis
         )
 {
@@ -3993,8 +3983,9 @@ static void interreduce_matrix_rows_ff_32(
 
     /* adjust displaying timings for statistic printout */
     if (st->info_level > 1) {
-        printf("                        ");
+        printf("                          ");
     }
+
     mat->tr = realloc(mat->tr, (unsigned long)ncols * sizeof(hm_t *));
 
     mat->cf_32  = realloc(mat->cf_32,
@@ -4021,6 +4012,8 @@ static void interreduce_matrix_rows_ff_32(
             cfs = bs->cf_32[pivs[l][COEFFS]];
             const len_t os  = pivs[l][PRELOOP];
             const len_t len = pivs[l][LENGTH];
+            const len_t bi  = pivs[l][BINDEX];
+            const len_t mh  = pivs[l][MULT];
             const hm_t * const ds = pivs[l] + OFFSET;
             sc  = ds[0];
             for (j = 0; j < os; ++j) {
@@ -4036,7 +4029,7 @@ static void interreduce_matrix_rows_ff_32(
             pivs[l] = NULL;
             pivs[l] = mat->tr[k--] =
                 reduce_dense_row_by_known_pivots_sparse_ff_32(
-                        dr, mat, bs, pivs, sc, l, st);
+                        dr, mat, bs, pivs, sc, l, mh, bi, 0,  st);
         }
     }
     if (free_basis != 0) {
