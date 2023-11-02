@@ -1,3 +1,9 @@
+msolve (0.6.1-1) unstable; urgency=medium
+
+  * New upstream release.
+
+ -- Doug Torrance <dtorrance@debian.org>  Thu, 02 Nov 2023 16:00:15 -0400
+
 msolve (0.6.0-1) unstable; urgency=medium
 
   * New upstream release.
