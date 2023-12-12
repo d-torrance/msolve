@@ -1,0 +1,17 @@
+Description: Fix spelling of "hyperref" option to xcolor package
+Author: Doug Torrance <dtorrance@debian.org>
+Forwarded: https://github.com/algebraic-solving/msolve/pull/107
+Bug-Debian: https://bugs.debian.org/1058557
+Last-Update: 2023-12-12
+
+--- a/doc/msolve-tutorial.tex
++++ b/doc/msolve-tutorial.tex
+@@ -15,7 +15,7 @@
+ \usepackage[utf8]{inputenc}
+ \usepackage[english]{babel}
+ \usepackage{amsmath,amssymb,amsfonts,amsthm}
+-\usepackage[usenames,dvipsnames,svgnames,table,hyperef]{xcolor}
++\usepackage[usenames,dvipsnames,svgnames,table,hyperref]{xcolor}
+ \usepackage{eurosym}
+ \usepackage{listings}
+ \lstset{
