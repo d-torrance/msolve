@@ -1,2 +1,2 @@
 # private libraries
-msolve: package-name-doesnt-match-sonames libmsolve-0.5.0 libneogb-0.5.0
+msolve: package-name-doesnt-match-sonames libmsolve-0.6.1 libneogb-0.6.1
