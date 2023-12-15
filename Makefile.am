@@ -25,13 +25,17 @@ checkdiff               = test/diff/diff_cp_d_3_n_4_p_2.sh \
 			  test/diff/diff_multy-qq.sh \
 			  test/diff/diff_nonradical_shape-qq.sh \
 			  test/diff/diff_nonradical_radicalshape-qq.sh \
+			  test/diff/diff_nonradical_radicalshape-no-square-31.sh \
+			  test/diff/diff_nonradical_radicalshape-no-square-qq.sh \
 			  test/diff/diff_one-16.sh \
 			  test/diff/diff_one-31.sh \
 			  test/diff/diff_one-qq.sh \
 			  test/diff/diff_radical_shape-31.sh \
 			  test/diff/diff_radical_shape-qq.sh \
-				test/diff/diff_reals_dim0.sh \
-				test/diff/diff_reals_dim0-swapvar.sh \
+			  test/diff/diff_reals_dim0.sh \
+			  test/diff/diff_reals_extract.sh \
+			  test/diff/diff_reals_dim0-swapvar.sh \
+			  test/diff/diff_reals_dim0-chgvar.sh \
 			  test/diff/diff_bug_empty_tracer.sh \
 			  test/diff/diff_bug_2nd_prime_bad.sh \
 			  test/diff/diff_bug_68.sh \
@@ -40,7 +44,8 @@ checkdiff               = test/diff/diff_cp_d_3_n_4_p_2.sh \
 			  test/diff/diff_input-overflow-16.sh \
 			  test/diff/diff_nf_8.sh \
 			  test/diff/diff_nf_16.sh \
-			  test/diff/diff_nf_31.sh
+			  test/diff/diff_nf_31.sh \
+			  test/diff/diff_nf_lm_bug.sh
 
 # dist_check_DATA         = test/input_files
 neogb_io_SOURCES 	= test/neogb/io/validate_input_data.c
