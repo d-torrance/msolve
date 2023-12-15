@@ -1,4 +1,4 @@
-msolve (0.6.2-1) UNRELEASED; urgency=medium
+msolve (0.6.2-1) unstable; urgency=medium
 
   * New upstream release.
   * debian/lintian-overrides
@@ -6,7 +6,7 @@ msolve (0.6.2-1) UNRELEASED; urgency=medium
   * debian/patches/xcolor-hyperref.patch
     - Remove patch; applied upstream.
 
- -- Doug Torrance <dtorrance@debian.org>  Fri, 15 Dec 2023 06:10:04 -0500
+ -- Doug Torrance <dtorrance@debian.org>  Fri, 15 Dec 2023 08:04:00 -0500
 
 msolve (0.6.1-2) unstable; urgency=medium
 
