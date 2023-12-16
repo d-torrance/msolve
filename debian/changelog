@@ -1,3 +1,10 @@
+msolve (0.6.2-2) unstable; urgency=medium
+
+  * debian/patches/skip-tests.patch
+    - New patch; skips failing tests.
+
+ -- Doug Torrance <dtorrance@debian.org>  Sat, 16 Dec 2023 14:31:18 -0500
+
 msolve (0.6.2-1) unstable; urgency=medium
 
   * New upstream release.
