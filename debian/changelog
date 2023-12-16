@@ -1,3 +1,11 @@
+msolve (0.6.3-1) unstable; urgency=medium
+
+  * New upstream release.
+  * debian/patches/skip-tests.patch
+    - Remove patch; applied upstream
+
+ -- Doug Torrance <dtorrance@debian.org>  Sat, 16 Dec 2023 16:12:52 -0500
+
 msolve (0.6.2-2) unstable; urgency=medium
 
   * debian/patches/skip-tests.patch
