@@ -3,11 +3,10 @@
 include /usr/share/dpkg/architecture.mk
 
 export DEB_BUILD_MAINT_OPTIONS=hardening=+all
-LIBPATH = "$$LD_LIBRARY_PATH:debian/msolve/usr/lib/$(DEB_HOST_MULTIARCH)"
+LIBPATH = "$$LD_LIBRARY_PATH:debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)"
 
 %:
 	dh $@
-
 
 execute_after_dh_auto_build:
 	cd doc && pdflatex msolve-tutorial && \
@@ -24,4 +23,4 @@ execute_after_dh_auto_install:
 # generate manpage
 	LD_LIBRARY_PATH=$(LIBPATH) help2man -N -n \
 		"computer algebra algorithms for solving polynomial systems" \
-		debian/msolve/usr/bin/msolve > msolve.1
+		debian/tmp/usr/bin/msolve > msolve.1
