@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([msolve], [0.6.3], [ederc@mathematik.uni-kl.de,mohab.safey@lip6.fr])
+AC_INIT([msolve], [0.6.4], [ederc@mathematik.uni-kl.de,mohab.safey@lip6.fr])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign silent-rules subdir-objects color-tests parallel-tests])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_MACRO_DIR([m4])
@@ -77,7 +77,6 @@ AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([
  Makefile
  msolve.pc
- include/Makefile
  src/fglm/Makefile
  src/neogb/Makefile
  src/usolve/Makefile
@@ -163,6 +162,10 @@ input_files/one-16.ms:input_files/one-16.ms
  output_files/realroot-extract.res:output_files/realroot-extract.res
  output_files/realroot-extract.p256.res:output_files/realroot-extract.p256.res
  test/diff/diff_reals_extract.sh:test/diff/diff_reals_extract.sh
+ input_files/bug-chgvar.ms:input_files/bug-chgvar.ms
+ output_files/bug-chgvar.res:output_files/bug-chgvar.res
+ output_files/bug-chgvar.p256.res:output_files/bug-chgvar.p256.res
+ test/diff/diff_reals_dim0-chgvar.sh:test/diff/diff_reals_dim0-chgvar.sh
  input_files/reals_dim0-swapvar.ms:input_files/reals_dim0-swapvar.ms
  output_files/reals_dim0-swapvar.res:output_files/reals_dim0-swapvar.res
  output_files/reals_dim0-swapvar.p256.res:output_files/reals_dim0-swapvar.p256.res

@@ -1,5 +1,5 @@
 AUTOMAKE_OPTIONS = color-tests
-SUBDIRS = src/usolve src/fglm src/neogb src/msolve include
+SUBDIRS = src/usolve src/fglm src/neogb src/msolve
 
 AM_CFLAGS	= $(SIMD_FLAGS) $(CPUEXT_FLAGS) $(OPENMP_CFLAGS)
 LDADD 		= src/neogb/libneogb.la src/fglm/libfglm.la src/usolve/libusolve.la
@@ -34,7 +34,8 @@ checkdiff               = test/diff/diff_cp_d_3_n_4_p_2.sh \
 			  test/diff/diff_radical_shape-qq.sh \
 			  test/diff/diff_reals_dim0.sh \
 			  test/diff/diff_reals_extract.sh \
-			  test/diff/diff_reals_dim0-swapvar.sh \
+        test/diff/diff_reals_dim0-swapvar.sh \
+        test/diff/diff_reals_dim0-chgvar.sh \
 			  test/diff/diff_bug_empty_tracer.sh \
 			  test/diff/diff_bug_2nd_prime_bad.sh \
 			  test/diff/diff_bug_68.sh \

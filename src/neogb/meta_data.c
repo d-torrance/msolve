@@ -28,6 +28,7 @@ static md_t *copy_meta_data(
     md_t *md = (md_t *)malloc(sizeof(md_t));
     memcpy(md, gmd, sizeof(md_t));
     md->fc  = prime;
+    md->min_deg_in_first_deg_fall = gmd->min_deg_in_first_deg_fall;
     md->application_nr_mult = 0;
     md->application_nr_add  = 0;
     md->application_nr_red  = 0;
