@@ -1,4 +1,4 @@
-msolve (0.6.4-1~exp1) UNRELEASED; urgency=medium
+msolve (0.6.4-1~exp1) experimental; urgency=medium
 
   * New upstream release.
   * debian/control
@@ -25,7 +25,7 @@ msolve (0.6.4-1~exp1) UNRELEASED; urgency=medium
     - Stop removing files that now are installed in -dev package.
     - Update paths for generating manpage (debian/msolve -> debian/tmp).
 
- -- Doug Torrance <dtorrance@debian.org>  Sat, 10 Feb 2024 09:45:11 -0500
+ -- Doug Torrance <dtorrance@debian.org>  Sat, 10 Feb 2024 10:11:28 -0500
 
 msolve (0.6.3-2) unstable; urgency=medium
 
