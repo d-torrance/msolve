@@ -1,3 +1,32 @@
+msolve (0.6.4-1~exp1) UNRELEASED; urgency=medium
+
+  * New upstream release.
+  * debian/control
+    - Add new libmsolve-0.6.4 and libmsolve-dev packages containing the
+      shared libraries and development files, respectively.
+  * debian/libmsolve-0.6.4.install
+    - New file; install shared libraries.
+  * debian/libmsolve-dev.install
+    - New file; install development files.
+  * debian/lintian-overrides
+    - Remove file; no longer necessary now that we install the shared
+      libraries in their own package.
+  * debian/msolve.doc-base
+    - Rename from "doc-base".
+  * debian/msolve.docs
+    - Rename from "docs".
+  * debian/msolve.install
+    - Rename from "install" and install contents of usr/bin.
+  * debian/msolve.manpages
+    - Rename from "manpages".
+  * debian/not-installed
+    - Don't install libtool .la files.
+  * debian/rules
+    - Stop removing files that now are installed in -dev package.
+    - Update paths for generating manpage (debian/msolve -> debian/tmp).
+
+ -- Doug Torrance <dtorrance@debian.org>  Sat, 10 Feb 2024 09:45:11 -0500
+
 msolve (0.6.3-2) unstable; urgency=medium
 
   * debian/copyright
