@@ -21,11 +21,6 @@ override_dh_auto_test:
 endif
 
 execute_after_dh_auto_install:
-# shared libraries are private, so we remove the files that are usually
-# included in a -dev package
-	cd debian/msolve/usr/lib/$(DEB_HOST_MULTIARCH) && \
-		rm -rf *.la *.a libmsolve.so libneogb.so pkgconfig
-	rm -rf debian/msolve/usr/include
 # generate manpage
 	LD_LIBRARY_PATH=$(LIBPATH) help2man -N -n \
 		"computer algebra algorithms for solving polynomial systems" \
