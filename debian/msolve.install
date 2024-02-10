@@ -1,2 +1,3 @@
 interfaces/*.mpl usr/share/msolve
 interfaces/*.sage usr/share/msolve
+usr/bin
