@@ -1,3 +1,10 @@
+msolve (0.6.4-1) unstable; urgency=medium
+
+  * Upload to unstable.
+  * Source-only upload for transition to testing.
+
+ -- Doug Torrance <dtorrance@debian.org>  Sun, 11 Feb 2024 21:14:13 -0500
+
 msolve (0.6.4-1~exp1) experimental; urgency=medium
 
   * New upstream release.
