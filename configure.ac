@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([msolve], [0.6.4], [ederc@mathematik.uni-kl.de,mohab.safey@lip6.fr])
+AC_INIT([msolve], [0.6.5], [ederc@mathematik.uni-kl.de,mohab.safey@lip6.fr])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign silent-rules subdir-objects color-tests parallel-tests])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_MACRO_DIR([m4])
@@ -138,9 +138,12 @@ AC_CONFIG_LINKS([
  output_files/nonradical_radicalshape-no-square-qq.res:output_files/nonradical_radicalshape-no-square-qq.res
  output_files/nonradical_radicalshape-no-square-qq.p3.res:output_files/nonradical_radicalshape-no-square-qq.p3.res
  test/diff/diff_nonradical_radicalshape-no-square-qq.sh:test/diff/diff_nonradical_radicalshape-no-square-qq.sh
-input_files/one-16.ms:input_files/one-16.ms
+ input_files/one-16.ms:input_files/one-16.ms
  output_files/one-16.res:output_files/one-16.res
  test/diff/diff_one-16.sh:test/diff/diff_one-16.sh
+ input_files/kat8-qq-truncate.ms:input_files/kat8-qq-truncate.ms
+ output_files/kat8-qq-truncate.res:output_files/kat8-qq-truncate.res
+ test/diff/diff_truncate_gb.sh:test/diff/diff_truncate_gb.sh
  input_files/one-31.ms:input_files/one-31.ms
  output_files/one-31.res:output_files/one-31.res
  test/diff/diff_one-31.sh:test/diff/diff_one-31.sh
