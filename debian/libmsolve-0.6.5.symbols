@@ -66,7 +66,6 @@ libmsolve-0.6.5.so libmsolve-0.6.5 #MINVER#
  nmod_fglm_guess_colon@Base 0.6.5
  nmod_mat_left_nullspace@Base 0.6.5
  nmod_mat_left_nullspace_compact@Base 0.6.5
- nmod_mat_permute_rows@Base 0.6.5
  nmod_mat_poly_clear@Base 0.6.5
  nmod_mat_poly_fit_length@Base 0.6.5
  nmod_mat_poly_init2@Base 0.6.5
@@ -86,10 +85,8 @@ libmsolve-0.6.5.so libmsolve-0.6.5 #MINVER#
  nmod_poly_mat_mbasis@Base 0.6.5
  nmod_poly_mat_middle_product@Base 0.6.5
  nmod_poly_mat_pmbasis@Base 0.6.5
- nmod_poly_mat_print@Base 0.6.5
  nmod_poly_mat_set_trunc_from_mat_poly@Base 0.6.5
  nmod_poly_mat_shift_right@Base 0.6.5
- nmod_poly_mat_truncate@Base 0.6.5
  normalize_points@Base 0.6.5
  primes_table@Base 0.6.5
  print_msolve_gbtrace_qq@Base 0.6.5
