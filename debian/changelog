@@ -1,3 +1,13 @@
+msolve (0.6.5-1~exp1) UNRELEASED; urgency=medium
+
+  * New upstream release.
+  * debian/control
+    - Rename libmsolve-0.6.4 package to libmsolve-0.6.5.
+  * debian/libmsolve-0.6.5.install
+    - Rename from libmsolve-0.6.4.install.
+
+ -- Doug Torrance <dtorrance@debian.org>  Mon, 26 Feb 2024 10:15:04 -0500
+
 msolve (0.6.4-1) unstable; urgency=medium
 
   * Upload to unstable.
