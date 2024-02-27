@@ -1,3 +1,13 @@
+msolve (0.6.5-1) unstable; urgency=medium
+
+  * Upload to unstable.
+  * Source-only upload for transition to testing.
+  * debian/libmsolve-0.6.5.symbols
+    - Mark _mod_mat_addmul_transpose_op as architecture-specific; only
+      available on x86 processors.
+
+ -- Doug Torrance <dtorrance@debian.org>  Tue, 27 Feb 2024 16:56:51 -0500
+
 msolve (0.6.5-1~exp1) experimental; urgency=medium
 
   * New upstream release.
