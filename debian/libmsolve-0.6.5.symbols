@@ -1,6 +1,6 @@
 libmsolve-0.6.5.so libmsolve-0.6.5 #MINVER#
  USOLVEdisplay_roots@Base 0.6.5
- _mod_mat_addmul_transpose_op@Base 0.6.5
+ (arch=amd64 i386)_mod_mat_addmul_transpose_op@Base 0.6.5
  _mpq_reconstruct_mpz@Base 0.6.5
  _mpq_reconstruct_mpz_2@Base 0.6.5
  _mpq_reconstruct_mpz_with_denom@Base 0.6.5
