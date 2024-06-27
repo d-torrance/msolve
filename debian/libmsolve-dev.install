@@ -1,5 +1,4 @@
 usr/include
 usr/lib/*/*.a
-usr/lib/*/libmsolve.so
-usr/lib/*/libneogb.so
+usr/lib/*/*.so
 usr/lib/*/pkgconfig
