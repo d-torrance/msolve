@@ -1,4 +1,4 @@
-libmsolve-0.6.5.so libmsolve-0.6.5 #MINVER#
+libmsolve.so.0 libmsolve0 #MINVER#
  USOLVEdisplay_roots@Base 0.6.5
  (arch=amd64 i386)_mod_mat_addmul_transpose_op@Base 0.6.5
  _mpq_reconstruct_mpz@Base 0.6.5
@@ -104,7 +104,7 @@ libmsolve-0.6.5.so libmsolve-0.6.5 #MINVER#
  set_linear_poly@Base 0.6.5
  single_exact_real_root_param@Base 0.6.5
  value_denom@Base 0.6.5
-libneogb-0.6.5.so libmsolve-0.6.5 #MINVER#
+libneogb.so.0 libmsolve0 #MINVER#
  add_syzygy_schreyer@Base 0.6.5
  allocate_meta_data@Base 0.6.5
  application_linear_algebra@Base 0.6.5
@@ -114,6 +114,7 @@ libneogb-0.6.5.so libmsolve-0.6.5 #MINVER#
  check_enlarge_basis@Base 0.6.5
  copy_basis_mod_p@Base 0.6.5
  copy_hash_table@Base 0.6.5
+ copy_meta_data@Base 0.6.6
  core_f4@Base 0.6.5
  core_f4sat@Base 0.6.5
  core_gba@Base 0.6.5
