@@ -1,4 +1,5 @@
 libmsolve.so.0 libmsolve0 #MINVER#
+* Build-Depends-Package: libmsolve-dev
  USOLVEdisplay_roots@Base 0.6.5
  (arch=amd64 i386)_mod_mat_addmul_transpose_op@Base 0.6.5
  _mpq_reconstruct_mpz@Base 0.6.5
@@ -106,6 +107,7 @@ libmsolve.so.0 libmsolve0 #MINVER#
  single_exact_real_root_param@Base 0.6.5
  value_denom@Base 0.6.5
 libneogb.so.0 libmsolve0 #MINVER#
+* Build-Depends-Package: libmsolve-dev
  add_syzygy_schreyer@Base 0.6.5
  allocate_meta_data@Base 0.6.5
  application_linear_algebra@Base 0.6.5
