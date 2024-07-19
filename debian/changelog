@@ -1,3 +1,9 @@
+msolve (0.6.7-1) UNRELEASED; urgency=medium
+
+  * New upstream release.
+
+ -- Doug Torrance <dtorrance@debian.org>  Fri, 19 Jul 2024 16:23:39 -0400
+
 msolve (0.6.6-1) unstable; urgency=medium
 
   * Upload to unstable.
