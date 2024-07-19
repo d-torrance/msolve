@@ -63,7 +63,7 @@ Description: computer algebra algorithms for solving polynomial systems (shared 
 Package: libmsolve-dev
 Section: libdevel
 Architecture: any
-Depends: ${misc:Depends}, ${shlibs:Depends}, libmsolve0 (=${binary:Version})
+Depends: ${misc:Depends}, libmsolve0 (=${binary:Version})
 Description: computer algebra algorithms for solving polynomial systems (development)
  msolve is an open source C library implementing computer algebra
  algorithms for solving polynomial systems (with rational coefficients
