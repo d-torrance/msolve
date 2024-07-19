@@ -1,8 +1,13 @@
-msolve (0.6.7-1) UNRELEASED; urgency=medium
+msolve (0.6.7-1) unstable; urgency=medium
 
   * New upstream release.
+  * debian/control
+    - Remove unused ${shlibs:Depends} from Depends for libmsolve-dev.
+  * debian/libmsolve0.symbols
+    - Update symbols for new release.
+    - Add Build-Depends-Package fields.
 
- -- Doug Torrance <dtorrance@debian.org>  Fri, 19 Jul 2024 16:23:39 -0400
+ -- Doug Torrance <dtorrance@debian.org>  Fri, 19 Jul 2024 17:17:08 -0400
 
 msolve (0.6.6-1) unstable; urgency=medium
 
