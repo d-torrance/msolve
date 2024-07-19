@@ -19,6 +19,7 @@ libmsolve.so.0 libmsolve0 #MINVER#
  display_root@Base 0.6.5
  display_roots_system@Base 0.6.5
  evalquadric@Base 0.6.5
+ export_julia_rational_parametrization_qq@Base 0.6.7
  extract_real_roots_param@Base 0.6.5
  fmpz_poly_set_coeff_mpz2@Base 0.6.5
  free_msolve_julia_result_data@Base 0.6.5
@@ -29,6 +30,7 @@ libmsolve.so.0 libmsolve0 #MINVER#
  initialize_rrec_data@Base 0.6.5
  is_prime@Base 0.6.5
  isolate_real_roots_lparam@Base 0.6.5
+ isolate_real_roots_param@Base 0.6.7
  lazy_mpz_poly_eval_interval@Base 0.6.5
  lazy_single_real_root_param@Base 0.6.5
  manage_output@Base 0.6.5
@@ -86,7 +88,6 @@ libmsolve.so.0 libmsolve0 #MINVER#
  nmod_poly_mat_middle_product@Base 0.6.5
  nmod_poly_mat_pmbasis@Base 0.6.5
  nmod_poly_mat_set_trunc_from_mat_poly@Base 0.6.5
- nmod_poly_mat_shift_right@Base 0.6.5
  normalize_points@Base 0.6.5
  primes_table@Base 0.6.5
  print_msolve_gbtrace_qq@Base 0.6.5
