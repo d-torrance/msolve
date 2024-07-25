@@ -2,8 +2,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([msolve], [0.6.7], [ederc@mathematik.uni-kl.de,mohab.safey@lip6.fr])
-AC_SUBST([LT_VERSION],[0:2:0])
+AC_INIT([msolve], [0.6.8], [ederc@mathematik.uni-kl.de,mohab.safey@lip6.fr])
+AC_SUBST([LT_VERSION],[0:3:0])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign silent-rules subdir-objects color-tests parallel-tests])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_MACRO_DIR([m4])
@@ -88,6 +88,15 @@ AC_CONFIG_LINKS([
  input_files/cp_d_3_n_4_p_2.ms:input_files/cp_d_3_n_4_p_2.ms
  output_files/cp_d_3_n_4_p_2.res:output_files/cp_d_3_n_4_p_2.res
  test/diff/diff_cp_d_3_n_4_p_2.sh:test/diff/diff_cp_d_3_n_4_p_2.sh
+ input_files/cyclic5-16.ms:input_files/cyclic5-16.ms
+ output_files/cyclic5-16.res:output_files/cyclic5-16.res
+ test/diff/diff_cyclic5-16.sh:test/diff/diff_cyclic5-16.sh
+ input_files/cyclic5-31.ms:input_files/cyclic5-31.ms
+ output_files/cyclic5-31.res:output_files/cyclic5-31.res
+ test/diff/diff_cyclic5-31.sh:test/diff/diff_cyclic5-31.sh
+ input_files/cyclic5-qq.ms:input_files/cyclic5-qq.ms
+ output_files/cyclic5-qq.res:output_files/cyclic5-qq.res
+ test/diff/diff_cyclic5-qq.sh:test/diff/diff_cyclic5-qq.sh
  input_files/eco6-16.ms:input_files/eco6-16.ms
  output_files/eco6-16.res:output_files/eco6-16.res
  test/diff/diff_eco6-16.sh:test/diff/diff_eco6-16.sh
@@ -192,6 +201,9 @@ AC_CONFIG_LINKS([
  input_files/xy-qq.ms:input_files/xy-qq.ms
  output_files/xy-qq.res:output_files/xy-qq.res
  test/diff/diff_xy-qq.sh:test/diff/diff_xy-qq.sh
+ input_files/linear-qq.ms:input_files/linear-qq.ms
+ output_files/linear-qq.res:output_files/linear-qq.res
+ test/diff/diff_linear-qq.sh:test/diff/diff_linear-qq.sh
  input_files/bug_68.ms:input_files/bug_68.ms
  output_files/bug_68.res:output_files/bug_68.res
  test/diff/diff_bug_68.sh:test/diff/diff_bug_68.sh

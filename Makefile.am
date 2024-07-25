@@ -13,6 +13,9 @@ check_PROGRAMS		= neogb_io \
 			  fglm_build_matrixn_nonradical_radicalshape-31
 
 checkdiff               = test/diff/diff_cp_d_3_n_4_p_2.sh \
+			  test/diff/diff_cyclic5-16.sh \
+			  test/diff/diff_cyclic5-31.sh \
+			  test/diff/diff_cyclic5-qq.sh \
 			  test/diff/diff_eco6-16.sh \
 			  test/diff/diff_eco6-31.sh \
 			  test/diff/diff_eco6-qq.sh \
@@ -45,6 +48,7 @@ checkdiff               = test/diff/diff_cp_d_3_n_4_p_2.sh \
 			  test/diff/diff_bug_68.sh \
 			  test/diff/diff_mq_2_1.sh \
 			  test/diff/diff_xy-qq.sh \
+			  test/diff/diff_linear-qq.sh \
 			  test/diff/diff_input-overflow-16.sh \
 			  test/diff/diff_nf_8.sh \
 			  test/diff/diff_nf_16.sh \
