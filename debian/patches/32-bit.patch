@@ -1,3 +1,11 @@
+Description: Fixes for 32-bit builds.
+ - Use "%zu" for format when printing size_t.
+ - Use mp_limb_t instead of uint64_t for arrays of primes that are passed
+   to flint CRT functions.
+Author: Doug Torrance <dtorrance@debian.org>
+Forwarded: https://github.com/algebraic-solving/msolve/pull/164
+Last-Update: 2024-07-25
+
 --- a/src/msolve/lifting-gb.c
 +++ b/src/msolve/lifting-gb.c
 @@ -47,9 +47,9 @@
@@ -19,7 +27,7 @@
 -  modgbs->primes = (uint64_t *)calloc(alloc, sizeof(uint64_t));
 -  modgbs->cf_64 = (uint64_t *)calloc(alloc, sizeof(uint64_t));
 +  modgbs->primes = (mp_limb_t *)calloc(alloc, sizeof(mp_limb_t));
-+  modgbs->cf_64 = (mp_limb_t *)calloc(alloc, sizeof(uint64_t));
++  modgbs->cf_64 = (mp_limb_t *)calloc(alloc, sizeof(mp_limb_t));
    modgbs->ld = ld;
    modgbs->nv = nv;
    modgbs->modpolys = (modpolys_t *)malloc(sizeof(modpolys_t) * ld);
