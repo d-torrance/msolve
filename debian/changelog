@@ -1,8 +1,10 @@
-msolve (0.6.8-1) UNRELEASED; urgency=medium
+msolve (0.6.8-1) unstable; urgency=medium
 
   * New upstream release.
+  * debian/patches/32-bit.patch
+    - New patch to fix 32-bit builds.
 
- -- Doug Torrance <dtorrance@debian.org>  Wed, 24 Jul 2024 23:18:40 -0400
+ -- Doug Torrance <dtorrance@debian.org>  Thu, 25 Jul 2024 23:09:51 -0400
 
 msolve (0.6.7-1) unstable; urgency=medium
 
