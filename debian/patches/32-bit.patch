@@ -3,6 +3,7 @@ Description: Fix 32-bit builds.
  a pointer to a long to a pointer to an int64_t, which doesn't work on 32-bit
  systems.
 Author: Doug Torrance <dtorrance@debian.org>
+Forwarded: https://github.com/algebraic-solving/msolve/pull/172
 Last-Update: 2024-07-30
 
 --- a/src/msolve/msolve-data.h
