@@ -1,10 +1,12 @@
-msolve (0.7.0-1) UNRELEASED; urgency=medium
+msolve (0.7.0-1) unstable; urgency=medium
 
   * New upstream release.
   * debian/patches/32-bit.patch
-    - Remove patch; applied upstream.
+    - Completely rewrite patch.  Previous version was applied upstream,
+      and now we fix a completely different but new issue that was causing
+      compilation errors on 32-bit machines.
 
- -- Doug Torrance <dtorrance@debian.org>  Tue, 30 Jul 2024 10:58:10 -0400
+ -- Doug Torrance <dtorrance@debian.org>  Tue, 30 Jul 2024 13:31:35 -0400
 
 msolve (0.6.8-1) unstable; urgency=medium
 
