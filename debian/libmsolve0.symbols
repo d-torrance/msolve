@@ -9,6 +9,7 @@ libmsolve.so.0 libmsolve0 #MINVER#
  _nmod_mat_poly_shift_left@Base 0.6.5
  bisection_Uspensky@Base 0.6.5
  check_and_set_linear_poly@Base 0.6.5
+ core_groebner_qq@Base 0.7.0
  core_msolve@Base 0.6.5
  display_arrays_of_real_roots@Base 0.6.5
  display_fglm_param@Base 0.6.5
@@ -20,7 +21,9 @@ libmsolve.so.0 libmsolve0 #MINVER#
  display_root@Base 0.6.5
  display_roots_system@Base 0.6.5
  evalquadric@Base 0.6.5
+ export_groebner_qq@Base 0.7.0
  export_julia_rational_parametrization_qq@Base 0.6.7
+ export_results_from_groebner_qq@Base 0.7.0
  extract_real_roots_param@Base 0.6.5
  fmpz_poly_set_coeff_mpz2@Base 0.6.5
  free_msolve_julia_result_data@Base 0.6.5
@@ -28,6 +31,7 @@ libmsolve.so.0 libmsolve0 #MINVER#
  generate_table_values@Base 0.6.5
  generate_table_values_full@Base 0.6.5
  get_values_at_bounds@Base 0.6.5
+ groebner_qq@Base 0.7.0
  initialize_rrec_data@Base 0.6.5
  is_prime@Base 0.6.5
  isolate_real_roots_lparam@Base 0.6.5
@@ -47,7 +51,6 @@ libmsolve.so.0 libmsolve0 #MINVER#
  mpz_poly_min_bsize_coeffs@Base 0.6.5
  mpz_scalar_product_interval@Base 0.6.5
  mpz_upoly_clear@Base 0.6.5
- msolve_gbtrace_qq@Base 0.6.5
  msolve_julia@Base 0.6.5
  msolve_trace_qq@Base 0.6.5
  newvalue_denom@Base 0.6.5
@@ -91,6 +94,8 @@ libmsolve.so.0 libmsolve0 #MINVER#
  nmod_poly_mat_set_trunc_from_mat_poly@Base 0.6.5
  normalize_points@Base 0.6.5
  primes_table@Base 0.6.5
+ print_fglm_data@Base 0.7.0
+ print_fglm_header@Base 0.7.0
  print_msolve_gbtrace_qq@Base 0.6.5
  ratrecon@Base 0.6.5
  ratreconwden@Base 0.6.5
@@ -115,6 +120,7 @@ libneogb.so.0 libmsolve0 #MINVER#
  check_and_set_meta_data@Base 0.6.5
  check_and_set_meta_data_trace@Base 0.6.5
  check_enlarge_basis@Base 0.6.5
+ check_ff_bits@Base 0.7.0
  copy_basis_mod_p@Base 0.6.5
  copy_hash_table@Base 0.6.5
  copy_meta_data@Base 0.6.6
@@ -181,6 +187,7 @@ libneogb.so.0 libmsolve0 #MINVER#
  reduce_dense_row_by_old_pivots_ff_32@Base 0.6.5
  remove_content_of_initial_basis@Base 0.6.5
  reset_hash_table_indices@Base 0.6.5
+ return_zero@Base 0.7.0
  sba_linear_algebra@Base 0.6.5
  sba_reduce_dense_row_by_known_pivots_sparse_ff_32@Base 0.6.5
  set_ff_bits@Base 0.6.5
