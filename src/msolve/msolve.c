@@ -1579,6 +1579,7 @@ static int32_t *initial_modular_step(
   int32_t empty_solution_set = 1;
   bs_t *bs = core_gba(gbg, md, &error, fc);
 
+  md->learning_rtime = realtime()-rt;
   print_tracer_statistics(stdout, rt, md);
 
   get_leading_ideal_information(num_gb, leadmons, 0, bs);
@@ -1599,9 +1600,9 @@ static int32_t *initial_modular_step(
         long dquot = 0;
         int32_t *lmb = monomial_basis(bs->lml, bs->ht->nv, leadmons[0], &dquot);
 
-        if(md->info_level){
-            fprintf(stderr, "Dimension of quotient: %ld\n", dquot);
-        }
+        /* if(md->info_level){ */
+        /*     fprintf(stderr, "Dimension of quotient: %ld\n", dquot); */
+        /* } */
         if(print_gb==0){
 	    /* *bmatrix = build_matrixn_from_bs_trace(bdiv_xn, */
 	    /* 					 blen_gb_xn, */
@@ -1610,6 +1611,9 @@ static int32_t *initial_modular_step(
 	    /* 					 leadmons[0], bs->ht->nv, */
 	    /* 					 fc, */
 	    /* 					 md->info_level); */
+	    md->fglm_rtime = realtime();
+	    md->fglm_ctime = cputime();
+	    print_fglm_header (stdout,md);
 	    *bmatrix = build_matrixn_unstable_from_bs_trace(bdiv_xn,
 							    blen_gb_xn,
 							    bstart_cf_gb_xn,
@@ -1627,6 +1631,9 @@ static int32_t *initial_modular_step(
 	      *success = 0;
 	      *dim = 0;
 	      *dquot_ori = dquot;
+	      if(md->info_level > 1){
+		fprintf (stdout,"------------------------------------------------------------------------------------------------------\n");
+	      }
 	      return NULL;
             }
 
@@ -1667,14 +1674,14 @@ static void secondary_modular_steps(sp_matfglm_t **bmatrix,
 				    nvars_t **blinvars,
 				    uint32_t **blineqs,
 				    nvars_t **bsquvars,
-				    
+
 				    fglm_data_t **bdata_fglm,
 				    fglm_bms_data_t **bdata_bms,
-				    
+
 				    int32_t *num_gb,
 				    int32_t **leadmons_ori,
 				    int32_t **leadmons_current,
-				    
+
 				    uint64_t bsz,
 				    param_t **nmod_params,
 				    /* trace_t **btrace, */
@@ -1929,11 +1936,13 @@ int msolve_trace_qq(mpz_param_t *mpz_paramp,
   /* initialize stuff */
   md_t *st = allocate_meta_data();
 
+  int truncate_lifting = 0;
   int *invalid_gens = NULL;
   int res = validate_input_data(
       &invalid_gens, cfs, lens, &field_char, &mon_order, &elim_block_len,
       &nr_vars, &nr_gens, &nr_nf, &ht_size, &nr_threads, &max_nr_pairs,
-      &reset_ht, &la_option, &use_signatures, &reduce_gb, &info_level);
+      &reset_ht, &la_option, &use_signatures, &reduce_gb, 
+      &truncate_lifting, &info_level);
 
   /* all data is corrupt */
   if (res == -1) {
@@ -1948,7 +1957,8 @@ int msolve_trace_qq(mpz_param_t *mpz_paramp,
           st, lens, exps, cfs, invalid_gens, field_char, mon_order,
           elim_block_len, nr_vars, nr_gens, nr_nf, ht_size, nr_threads,
           max_nr_pairs, reset_ht, la_option, use_signatures, reduce_gb,
-          prime_start, nr_primes, pbm_file, info_level)) {
+          prime_start, nr_primes, pbm_file, 0 /*truncate_lifting */, 
+          info_level)) {
     free(st);
     return -3;
   }
@@ -2046,7 +2056,7 @@ int msolve_trace_qq(mpz_param_t *mpz_paramp,
   nvars_t **bsquvars = (nvars_t **)malloc(st->nthrds * sizeof(nvars_t *));
   nvars_t *squvars = calloc(nr_vars - 1, sizeof(nvars_t));
   bsquvars[0] = squvars;
-  
+
 
   set_linear_function_pointer(gens->field_char);
 
@@ -2062,11 +2072,11 @@ int msolve_trace_qq(mpz_param_t *mpz_paramp,
 
 					  &nlins, blinvars[0], lineqs_ptr,
 					  squvars,
-					  
+
 					  bdata_fglm, bdata_bms,
-					  
+
 					  num_gb, leadmons_ori,
-					  
+
 					  &bsz, nmod_params,
 					  bs_qq, st,
 					  lp->p[0], //prime,
@@ -2155,9 +2165,10 @@ int msolve_trace_qq(mpz_param_t *mpz_paramp,
                                bsquvars);
   normalize_nmod_param(nmod_params[0]);
 
-  if (info_level) {
-    fprintf(stderr, "\nStarts multi-modular computations\n");
-  }
+  /* if (info_level) { */
+  /*   fprintf(stderr, "\nStarts multi-modular computations\n"); */
+  /* } */
+  /* print postponed */
 
   mpz_param_t tmp_mpz_param;
   mpz_param_init(tmp_mpz_param);
@@ -2295,7 +2306,6 @@ int msolve_trace_qq(mpz_param_t *mpz_paramp,
     prime = lp->p[st->nthrds - 1];
 
     double ca0 = realtime();
-
     double stf4 = 0;
     secondary_modular_steps(bmatrix,
 			    bdiv_xn,
@@ -2337,13 +2347,43 @@ int msolve_trace_qq(mpz_param_t *mpz_paramp,
                 (unsigned long)st->application_nr_red);
         fprintf(stderr, "------------------------------------------\n");
       }
-      if (info_level > 1) {
-        fprintf(stderr, "Application phase %.2f Gops/sec\n",
-                (st->application_nr_add + st->application_nr_mult) / 1000.0 /
-                    1000.0 / (stf4));
-        fprintf(stderr, "Multi-mod time: GB + fglm (elapsed): %.2f sec\n",
-                (ca1));
+      /* if (info_level > 1) { */
+      /*   fprintf(stderr, "Application phase %.2f Gops/sec\n", */
+      /*           (st->application_nr_add + st->application_nr_mult) / 1000.0 / */
+      /*               1000.0 / (stf4)); */
+      /*   fprintf(stderr, "Multi-mod time: GB + fglm (elapsed): %.2f sec\n", */
+      /*           (ca1) ); */
+      /* } */
+      if(info_level){
+	    fprintf(stdout,
+		    "\n---------------- TIMINGS ----------------\n");
+	    fprintf(stdout,
+		    "multi-mod overall(elapsed) %9.2f sec\n",
+		    ca1);
+	    fprintf(stdout,
+		    "multi-mod F4               %9.2f sec\n",
+		    stf4);
+	    fprintf(stdout,
+		    "multi-mod FGLM             %9.2f sec\n",
+		    ca1-stf4);
+	    if (info_level > 1){
+	      fprintf(stdout,
+		      "learning phase             %9.2f Gops/sec\n",
+		      (st->trace_nr_add+st->trace_nr_mult)/1000.0/1000.0/(st->learning_rtime));
+	      fprintf(stdout,
+		      "application phase          %9.2f Gops/sec\n",
+		      (st->application_nr_add+st->application_nr_mult)/1000.0/1000.0/(stf4));
+	    }
+	    fprintf(stdout,
+		    "-----------------------------------------\n");
       }
+      if (info_level) {
+	  fprintf(stdout,
+		  "\nmulti-modular steps\n");
+	  fprintf(stdout, "-------------------------------------------------\
+-----------------------------------------------------\n");
+      }
+
     }
     for (int i = 0; i < st->nthrds; i++) {
       if (bad_primes[i] == 0) {
@@ -2380,7 +2420,8 @@ int msolve_trace_qq(mpz_param_t *mpz_paramp,
         nprimes++;
       } else {
         if (info_level) {
-          fprintf(stderr, "<bp: %d>\n", lp->p[i]);
+          fprintf(stdout, "<bp: %d>\n", lp->p[i]);
+	  fflush(stdout);
         }
         nbadprimes++;
         if (nbadprimes > nprimes) {
@@ -2406,7 +2447,8 @@ int msolve_trace_qq(mpz_param_t *mpz_paramp,
       lpow2 = 2 * nprimes;
       doit = 0;
       if (info_level) {
-        fprintf(stderr, "\n<Step:%d/%.2f/%.2f>", nbdoit, scrr, t);
+        fprintf(stdout, "\n<Step:%d/%.2f/%.2f>", nbdoit, scrr, t);
+	fflush(stdout);
       }
       prdone = 0;
     } else {
@@ -2416,7 +2458,8 @@ int msolve_trace_qq(mpz_param_t *mpz_paramp,
     if ((LOG2(nprimes) > clog) ||
         (nbdoit != 1 && (nprimes % (lpow2 + 1) == 0))) {
       if (info_level) {
-        fprintf(stderr, "{%d}", nprimes);
+        fprintf(stdout, "{%d}", nprimes);
+	fflush(stdout);
       }
       clog++;
       lpow2 = 2 * lpow2;
@@ -2430,10 +2473,23 @@ int msolve_trace_qq(mpz_param_t *mpz_paramp,
     mpz_mul_ui((*mpz_paramp)->denom->coeffs[i - 1],
                (*mpz_paramp)->denom->coeffs[i - 1], i);
   }
+  if(info_level){
+    fprintf(stdout,
+	    "\n-------------------------------------------------\
+-----------------------------------------------------\n");
+  }
 
-  if (info_level) {
-    fprintf(stderr, "\n%d primes used\n", nprimes);
-    fprintf(stderr, "Time for CRT + rational reconstruction = %.2f\n", strat);
+
+  if(info_level){
+    /* fprintf(stderr, "\n%d primes used\n", nprimes); */
+    /* fprintf(stderr, "Time for CRT + rational reconstruction = %.2f\n", strat); */
+    fprintf(stdout,"\n---------- COMPUTATIONAL DATA -----------\n");
+    fprintf(stdout, "#primes            %16lu\n", (unsigned long) nprimes);
+    fprintf(stdout, "#bad primes        %16lu\n", (unsigned long) nbadprimes);
+    fprintf(stdout, "-----------------------------------------\n");
+    fprintf(stdout, "\n---------------- TIMINGS ----------------\n");
+    fprintf(stdout, "CRT and ratrecon(elapsed) %10.2f sec\n", st->fglm_rtime);
+    fprintf(stdout, "-----------------------------------------\n");
   }
   mpz_param_clear(tmp_mpz_param);
   mpz_upoly_clear(numer);
@@ -3280,11 +3336,21 @@ int real_msolve_qq(mpz_param_t *mpz_paramp, param_t **nmod_param, int *dim_ptr,
   double ct1 = cputime();
   double rt1 = realtime();
 
-  if (info_level && print_gb == 0) {
-    fprintf(
-        stderr,
-        "Time for rational param: %13.2f (elapsed) sec / %5.2f sec (cpu)\n\n",
-        rt1 - rt0, ct1 - ct0);
+  if(info_level && print_gb == 0){
+    /* fprintf( */
+    /*     stderr, */
+    /*     "Time for rational param: %13.2f (elapsed) sec / %5.2f sec (cpu)\n\n", */
+    /*     rt1 - rt0, ct1 - ct0); */
+    fprintf (stdout,
+	     "\n---------------- TIMINGS ----------------\n");
+    fprintf(stdout,
+	    "rational param(elapsed) %12.2f sec\n",
+	    rt1-rt0);
+    fprintf(stdout,
+	    "rational param(cpu) %16.2f sec\n",
+	    ct1-ct0);
+    fprintf(stdout,
+	    "-----------------------------------------\n");
   }
 
   if (get_param > 1) {
@@ -3511,7 +3577,7 @@ restart:
                     /* gens->field_char, 0 [> DRL order <], gens->nvars, */
                     gens->ngens, saturate, initial_hts, nr_threads, max_pairs,
                     update_ht, la_option, use_signatures, 1 /* reduce_gb */, 0,
-                    info_level);
+                    0 /*truncate_lifting */, info_level);
 
             if (st->homogeneous != 1) {
                 fprintf(stderr,
@@ -3573,6 +3639,10 @@ restart:
             int32_t error = 0;
             int success   = 0;
 
+            if(check_ff_bits(gens->field_char) < 32){
+              fprintf(stderr, "Error: not implemented yet (prime field of too low characteristic)\n");
+              return 1;
+            }
             /*             initialize generators of ideal, note the "gens->ngens-normal_form" which
              *             means that we only take the first nr_gens-normal_form generators from
              *             the input file, the last normal_form polynomial in the file will
@@ -3585,27 +3655,18 @@ restart:
              *             to the correct field characteristic. */
             success = initialize_gba_input_data(&bs, &bht, &st,
                     gens->lens, gens->exps, (void *)gens->cfs,
-                    1073741827, 0 /* DRL order */, elim_block_len, gens->nvars,
+                    gens->field_char, 0 /* DRL order */, elim_block_len, gens->nvars,
                     /* gens->field_char, 0 [> DRL order <], gens->nvars, */
                     gens->ngens, saturate, initial_hts, nr_threads, max_pairs,
                     update_ht, la_option, use_signatures, 1 /* reduce_gb */, 0,
-                    info_level);
+                    0 /*truncate_lifting */, info_level);
 
-            st->gfc  = gens->field_char;
-            set_ff_bits(st, st->gfc);
-            if(info_level){
-                fprintf(stderr,
-                        "NOTE: Field characteristic is now corrected to %u\n",
-                        st->gfc);
-            }
-            if(st->ff_bits < 32){
-              fprintf(stderr, "Error: not implemented yet (prime field of too low characteristic)\n");
-              return 1;
-            }
             if (!success) {
                 printf("Bad input data, stopped computation.\n");
                 exit(1);
             }
+
+            st->gfc = gens->field_char;
 
             if (is_gb == 1) {
                 for (len_t k = 0; k < bs->ld; ++k) {
@@ -3691,7 +3752,7 @@ restart:
                     /* gens->field_char, 0 [> DRL order <], gens->nvars, */
                     gens->ngens, 1, initial_hts, nr_threads, max_pairs,
                     update_ht, la_option, use_signatures, 1 /* reduce_gb */, 0,
-                    info_level);
+                    0 /*truncate_lifting */, info_level);
 
 	    st->gfc  = gens->field_char;
             if(info_level){
@@ -3788,18 +3849,18 @@ restart:
 	    long suppsize= tbr->hm[tbr->lmps[1]][LENGTH]; // bs->hm[bs->lmps[1]][LENGTH]
 	    printf("Length of the support of phi: %lu\n",
 		   suppsize);
-	    
+
 	    /* sht and hcm will store the support of the normal form in tbr. */
 	    ht_t *sht   = initialize_secondary_hash_table(bht, st);
 	    hi_t *hcm   = (hi_t *)malloc(sizeof(hi_t));
 	    mat_t *mat  = (mat_t *)calloc(1, sizeof(mat_t));
-	    
+
 	    /* printf("Starts computation of normal form matrix\n"); */
 	    get_normal_form_matrix(tbr, bht, 1,
 				   st, &sht, &hcm, &mat);
 	    printf("Length of union of support of all normal forms: %u\n",
 		   mat->nc);
-	    
+
 	    /* printf("\nUnion of support, sorted by decreasing monomial order:\n"); */
 	    /* for (len_t k = 0; k < mat->nc; ++k) { */
 	    /*   for (len_t l = 1; l <= sht->nv; ++l) { */
@@ -3810,7 +3871,7 @@ restart:
 
 	    int32_t *bcf_ff = (int32_t *)(*bcf);
 	    int32_t *bexp_lm = get_lead_monomials(bld, blen, bexp, gens);
-	    
+
 	    long maxdeg = sht->ev[hcm[0]][0]; /* degree of the normal
 						 form */
 	    for (long i = 0; i < bld[0]; i++) {
@@ -3935,7 +3996,7 @@ restart:
 	    if (sht != NULL) {
 	      free_hash_table(&sht);
 	    }
-	    
+
             /* free and clean up */
             if (bs != NULL) {
 	      free_basis(&bs);
@@ -4065,7 +4126,7 @@ restart:
             fprintf(stderr, "This will\n");
             fprintf(stderr, "be done automatically if you run msolve with option\n");
             fprintf(stderr, "\"-c2\" which is the default.\n");
-	  } 
+	  }
         }
 	else {
           /* normal_form is 1 */
@@ -4099,7 +4160,7 @@ restart:
                     /* gens->field_char, 0 [> DRL order <], gens->nvars, */
                     gens->ngens, normal_form, initial_hts, nr_threads, max_pairs,
                     update_ht, la_option, use_signatures, 1 /* reduce_gb */, 0,
-                    info_level);
+                    0 /*truncate_lifting */, info_level);
 
             st->gfc  = gens->field_char;
             if (!success) {
@@ -4249,7 +4310,7 @@ restart:
                     &gens->nvars, &gens->ngens, &saturate, &initial_hts,
                     &nr_threads, &max_pairs, &update_ht, &la_option,
                     &use_signatures, &reduce_gb, &info_level);
-	    
+
             /* all data is corrupt */
             if (res == -1) {
                 fprintf(stderr, "Invalid input generators, msolve now terminates.\n");
@@ -4423,11 +4484,12 @@ restart:
             int *invalid_gens       =   NULL;
             int32_t monomial_order  =   0;
             int32_t reduce_gb       =   1;
+            int32_t truncate_lifting =  0;
             int res = validate_input_data(&invalid_gens, gens->mpz_cfs,
                     gens->lens, &field_char, &monomial_order, &elim_block_len,
                     &gens->nvars, &gens->ngens, &saturate, &initial_hts,
                     &nr_threads, &max_pairs, &update_ht, &la_option,
-                    &use_signatures, &reduce_gb, &info_level);
+                    &use_signatures, &reduce_gb, &truncate_lifting, &info_level);
 
             /* all data is corrupt */
             if (res == -1) {
@@ -4443,7 +4505,8 @@ restart:
                         field_char, 0, elim_block_len, gens->nvars,
                         gens->ngens, saturate, initial_hts, nr_threads,
                         max_pairs, update_ht, la_option, use_signatures,
-                        1, prime_start, nr_primes, 0, info_level)) {
+                        1, prime_start, nr_primes, 0, truncate_lifting, 
+                        info_level)) {
                 free(st);
                 return -3;
             }
@@ -5015,7 +5078,7 @@ void msolve_julia(
     if (info_level > 0) {
         double st1 = cputime();
         double rt1 = realtime();
-        fprintf(stderr, "-------------------------------------------------\
+        fprintf(stderr, "\n-------------------------------------------------\
 -----------------------------------\n");
         fprintf(stderr, "msolve overall time  %13.2f sec (elapsed) / %5.2f sec (cpu)\n",
                 rt1-rt0, st1-st0);

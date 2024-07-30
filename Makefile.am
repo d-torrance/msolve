@@ -19,6 +19,7 @@ checkdiff               = test/diff/diff_cp_d_3_n_4_p_2.sh \
 			  test/diff/diff_eco6-16.sh \
 			  test/diff/diff_eco6-31.sh \
 			  test/diff/diff_eco6-qq.sh \
+			  test/diff/diff_henrion5-qq.sh \
 			  test/diff/diff_eco10-31.sh \
 			  test/diff/diff_truncate_gb.sh \
 			  test/diff/diff_elim-31.sh \
@@ -53,7 +54,9 @@ checkdiff               = test/diff/diff_cp_d_3_n_4_p_2.sh \
 			  test/diff/diff_nf_8.sh \
 			  test/diff/diff_nf_16.sh \
 			  test/diff/diff_nf_31.sh \
-			  test/diff/diff_nf_lm_bug.sh
+			  test/diff/diff_nf_lm_bug.sh \
+			  test/diff/diff_f4sat-field-char.sh \
+			  test/diff/diff_f4sat-zero-input.sh
 
 # dist_check_DATA         = test/input_files
 neogb_io_SOURCES 	= test/neogb/io/validate_input_data.c
