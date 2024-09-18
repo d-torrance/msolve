@@ -66,7 +66,6 @@ libmsolve.so.0 libmsolve0 #MINVER#
  nmod_berlekamp_massey_start_over_modif@Base 0.6.5
  nmod_em_gcd@Base 0.6.5
  nmod_em_gcd_preinstantiated@Base 0.6.5
- nmod_fglm_compute@Base 0.6.5
  nmod_fglm_compute_apply_trace_data@Base 0.6.5
  nmod_fglm_compute_trace_data@Base 0.6.5
  nmod_fglm_guess_colon@Base 0.6.5
