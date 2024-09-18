@@ -2,8 +2,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([msolve], [0.7.1], [ederc@mathematik.uni-kl.de,mohab.safey@lip6.fr])
-AC_SUBST([LT_VERSION],[1:1:1])
+AC_INIT([msolve], [0.7.2], [ederc@mathematik.uni-kl.de,mohab.safey@lip6.fr])
+AC_SUBST([LT_VERSION],[1:2:1])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign silent-rules subdir-objects color-tests parallel-tests])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_MACRO_DIR([m4])
@@ -211,6 +211,9 @@ AC_CONFIG_LINKS([
  input_files/xy-qq.ms:input_files/xy-qq.ms
  output_files/xy-qq.res:output_files/xy-qq.res
  test/diff/diff_xy-qq.sh:test/diff/diff_xy-qq.sh
+ input_files/test-lifting2.ms:input_files/test-lifting2.ms
+ output_files/test-lifting2.res:output_files/test-lifting2.res
+ test/diff/diff_test-lifting2.sh:test/diff/diff_test-lifting2.sh
  input_files/linear-qq.ms:input_files/linear-qq.ms
  output_files/linear-qq.res:output_files/linear-qq.res
  test/diff/diff_linear-qq.sh:test/diff/diff_linear-qq.sh
@@ -241,5 +244,11 @@ AC_CONFIG_LINKS([
  input_files/f4sat-zero-input.ms:input_files/f4sat-zero-input.ms
  output_files/f4sat-zero-input.res:output_files/f4sat-zero-input.res
  test/diff/diff_f4sat-zero-input.sh:test/diff/diff_f4sat-zero-input.sh
+ input_files/f4sat-is-saturated-check.ms:input_files/f4sat-is-saturated-check.ms
+ output_files/f4sat-is-saturated-check.res:output_files/f4sat-is-saturated-check.res
+ test/diff/diff_f4sat-is-saturated-check.sh:test/diff/diff_f4sat-is-saturated-check.sh
+ input_files/maxbitsize-bug.ms:input_files/maxbitsize-bug.ms
+ output_files/maxbitsize-bug.res:output_files/maxbitsize-bug.res
+ test/diff/diff_maxbitsize-bug.sh:test/diff/diff_maxbitsize-bug.sh
 ])
 AC_OUTPUT

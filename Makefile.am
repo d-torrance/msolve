@@ -49,6 +49,7 @@ checkdiff               = test/diff/diff_cp_d_3_n_4_p_2.sh \
 			  test/diff/diff_bug_68.sh \
 			  test/diff/diff_mq_2_1.sh \
 			  test/diff/diff_xy-qq.sh \
+			  test/diff/diff_test-lifting2.sh \
 			  test/diff/diff_linear-qq.sh \
 			  test/diff/diff_input-overflow-16.sh \
 			  test/diff/diff_nf_8.sh \
@@ -56,7 +57,9 @@ checkdiff               = test/diff/diff_cp_d_3_n_4_p_2.sh \
 			  test/diff/diff_nf_31.sh \
 			  test/diff/diff_nf_lm_bug.sh \
 			  test/diff/diff_f4sat-field-char.sh \
-			  test/diff/diff_f4sat-zero-input.sh
+			  test/diff/diff_f4sat-zero-input.sh \
+			  test/diff/diff_f4sat-is-saturated-check.sh \
+			  test/diff/diff_maxbitsize-bug.sh
 
 # dist_check_DATA         = test/input_files
 neogb_io_SOURCES 	= test/neogb/io/validate_input_data.c
