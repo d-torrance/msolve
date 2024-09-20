@@ -1,3 +1,11 @@
+msolve (0.7.2-1) UNRELEASED; urgency=medium
+
+  * New upstream release.
+  * debian/libmsolve0.symbols
+    - Update symbols for new release.
+
+ -- Doug Torrance <dtorrance@debian.org>  Thu, 19 Sep 2024 21:36:41 -0400
+
 msolve (0.7.1-1) unstable; urgency=medium
 
   * New upstream release.
