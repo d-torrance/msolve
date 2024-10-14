@@ -2,8 +2,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([msolve], [0.7.2], [ederc@mathematik.uni-kl.de,mohab.safey@lip6.fr])
-AC_SUBST([LT_VERSION],[1:2:1])
+AC_INIT([msolve], [0.7.3], [ederc@mathematik.uni-kl.de,mohab.safey@lip6.fr])
+AC_SUBST([LT_VERSION],[1:3:1])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign silent-rules subdir-objects color-tests parallel-tests])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_MACRO_DIR([m4])
@@ -84,6 +84,14 @@ AC_CONFIG_FILES([
  src/msolve/Makefile
 ])
 AC_CONFIG_LINKS([
+ input_files/line_endings/in1_dos.ms:input_files/line_endings/in1_dos.ms
+ input_files/line_endings/in2_dos_noeol.ms:input_files/line_endings/in2_dos_noeol.ms
+ input_files/line_endings/in3_dos.ms:input_files/line_endings/in3_dos.ms
+ input_files/line_endings/in4_dos.ms:input_files/line_endings/in4_dos.ms
+ input_files/line_endings/in1_unix.ms:input_files/line_endings/in1_unix.ms
+ input_files/line_endings/in2_unix.ms:input_files/line_endings/in2_unix.ms
+ input_files/line_endings/in3_unix.ms:input_files/line_endings/in3_unix.ms
+ input_files/line_endings/in4_unix.ms:input_files/line_endings/in4_unix.ms
  test/diff/diff_source.sh:test/diff/diff_source.sh
  test/diff/diff_source-groebner.sh:test/diff/diff_source-groebner.sh
  input_files/cp_d_3_n_4_p_2.ms:input_files/cp_d_3_n_4_p_2.ms
@@ -189,6 +197,10 @@ AC_CONFIG_LINKS([
  input_files/reals_dim0.ms:input_files/reals_dim0.ms
  output_files/reals_dim0.res:output_files/reals_dim0.res
  output_files/reals_dim0.p256.res:output_files/reals_dim0.p256.res
+ test/diff/diff_realroot-extraction-exact-root.sh:test/diff/diff_realroot-extraction-exact-root.sh
+ input_files/realroot-extraction-exact-root.ms:input_files/realroot-extraction-exact-root.ms
+ output_files/realroot-extraction-exact-root.res:output_files/realroot-extraction-exact-root.res
+ output_files/realroot-extraction-exact-root.p256.res:output_files/realroot-extraction-exact-root.p256.res
  test/diff/diff_reals_dim0.sh:test/diff/diff_reals_dim0.sh
  input_files/reals_dim0-extract.ms:input_files/reals_dim0-extract.ms
  output_files/reals_dim0-extract.res:output_files/reals_dim0-extract.res
