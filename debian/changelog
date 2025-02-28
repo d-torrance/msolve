@@ -1,8 +1,8 @@
-msolve (0.7.4-1) UNRELEASED; urgency=medium
+msolve (0.7.4-1) unstable; urgency=medium
 
   * New upstream release.
 
- -- Doug Torrance <dtorrance@piedmont.edu>  Fri, 28 Feb 2025 06:30:40 -0500
+ -- Doug Torrance <dtorrance@piedmont.edu>  Fri, 28 Feb 2025 13:58:18 -0500
 
 msolve (0.7.3-1) unstable; urgency=medium
 
