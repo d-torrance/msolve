@@ -3040,6 +3040,11 @@ void lazy_single_real_root_param(mpz_param_t param, mpz_t *polelim,
 
     long dec = prec;
 
+    long nbits = mpz_sizeinbase(val_up, 2) - mpz_sizeinbase(den_up, 2) - mpz_sizeinbase(param->cfs[nv], 2);
+    if(nbits <= 0){
+        dec = prec - nbits;
+    }
+
     mpz_mul_2exp(val_up, val_up, dec);
     mpz_mul_2exp(val_do, val_do, dec);
 
@@ -3054,6 +3059,7 @@ void lazy_single_real_root_param(mpz_param_t param, mpz_t *polelim,
         mpz_fdiv_q(v1, val_do, tmp);
         mpz_mul(tmp, den_do, param->cfs[nv]);
         mpz_cdiv_q(v2, val_up, tmp);
+        
       }
       if (mpz_sgn(val_do) <= 0 && mpz_sgn(val_up) >= 0) {
         mpz_mul(tmp, den_do, param->cfs[nv]);
@@ -3091,8 +3097,8 @@ void lazy_single_real_root_param(mpz_param_t param, mpz_t *polelim,
     mpz_set(pt->coords[nv]->val_up, val_up);
     mpz_set(pt->coords[nv]->val_do, val_do);
 
-    pt->coords[nv]->k_up = prec;
-    pt->coords[nv]->k_do = prec;
+    pt->coords[nv]->k_up = dec;
+    pt->coords[nv]->k_do = dec;
     pt->coords[nv]->isexact = 0;
   }
   mpz_set(pt->coords[param->nvars - 1]->val_do, rt->numer);
@@ -4035,13 +4041,11 @@ restart:
 	  int dim = - 2;
 	  long dquot = -1;
 
-    if(elim_block_len > 0 && print_gb == 0){
-      if(info_level){
-        fprintf(stderr, "Warning: elim order not available for rational parametrizations\n");
-        fprintf(stderr, "Computing Groebner basis\n");
-        print_gb=2;
+      if(elim_block_len > 0 && print_gb == 0){
+          fprintf(stderr, "Warning: elim order not available for rational parametrizations\n");
+          fprintf(stderr, "Computing Groebner basis\n");
+          print_gb=2;
       }
-    }
 	  b = real_msolve_qq(mpz_paramp,
                        &param,
                        &dim,
@@ -4706,11 +4710,9 @@ restart:
             long dquot = -1;
 
             if(elim_block_len && print_gb == 0){
-              if(info_level){
                 fprintf(stderr, "Warning: elim order not available for rational parametrizations\n");
                 fprintf(stderr, "Computing Groebner basis\n");
                 print_gb=2;
-              }
             }
 
             if(print_gb){
