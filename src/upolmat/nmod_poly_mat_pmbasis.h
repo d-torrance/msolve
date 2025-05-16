@@ -76,7 +76,9 @@
 
 #define PMBASIS_THRES 32
 
+#ifdef HAVE_FLINT_NMOD_TYPES_H
 #include <flint/nmod_types.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {

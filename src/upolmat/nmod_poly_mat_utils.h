@@ -33,8 +33,12 @@
  */
 
 #include <flint/flint.h>
+#ifdef HAVE_FLINT_NMOD_TYPES_H
 #include <flint/nmod_types.h>
+#endif
+#ifdef HAVE_FLINT_FMPZ_TYPES_H
 #include <flint/fmpz_types.h> // for fmpz_mat degree matrix
+#endif
 #include <flint/nmod_poly.h> // for nmod_poly_swap
 
 // for nmod_mat_poly_t

@@ -53,6 +53,7 @@ fi
 
 # Checks for header files.
 AC_CHECK_HEADERS([inttypes.h stdint.h sys/time.h unistd.h])
+AC_CHECK_HEADERS([flint/nmod_types.h flint/fmpz_types.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_INLINE
