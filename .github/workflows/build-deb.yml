@@ -1,0 +1,47 @@
+name: Build Debian packages
+on:
+  push:
+
+jobs:
+  deb:
+    runs-on: ${{ matrix.runner }}
+    container: debian:${{ matrix.release }}
+    strategy:
+      fail-fast: false
+      matrix:
+        release:
+          - 11
+          - 12
+          - 13
+        runner:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+    steps:
+      - name: Install dependencies
+        run: |
+          # https://bugs.debian.org/1066021
+          echo "MIRRORSITE= http://deb.debian.org/debian" > /etc/pbuilderrc
+          apt-get update
+          apt-get install -y autoconf automake biber git git-buildpackage      \
+              help2man libflint-dev libtool make texlive-bibtex-extra          \
+              texlive-fonts-extra texlive-fonts-recommended texlive-latex-base \
+              texlive-latex-extra texlive-latex-recommended                    \
+              texlive-plain-generic texlive-science
+      - name: Clone repository
+        run: git clone https://salsa.debian.org/math-team/msolve -b ppa
+      - name: Build package
+        run: |
+          cd msolve
+          NAME="Doug Torrance" EMAIL=dtorrance@debian.org dch --bpo ""
+          gbp buildpackage -us -uc --git-ignore-new
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: msolve-debian-${{ matrix.release }}-${{ matrix.runner }}-artifacts
+          path: |
+            *.buildinfo
+            *.changes
+            *.deb
+            *.dsc
+            *.tar.*
