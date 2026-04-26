@@ -4,23 +4,20 @@ on:
 
 jobs:
   deb:
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.os }}
     container: debian:${{ matrix.release }}
     strategy:
       fail-fast: false
       matrix:
         release:
-          - 11
-          - 12
-          - 13
-        runner:
+          - bullseye
+          - bookworm
+        os:
           - ubuntu-latest
           - ubuntu-24.04-arm
     steps:
       - name: Install dependencies
         run: |
-          # https://bugs.debian.org/1066021
-          echo "MIRRORSITE= http://deb.debian.org/debian" > /etc/pbuilderrc
           apt-get update
           apt-get install -y autoconf automake biber git git-buildpackage      \
               help2man libflint-dev libtool make texlive-bibtex-extra          \
@@ -28,17 +25,23 @@ jobs:
               texlive-latex-extra texlive-latex-recommended                    \
               texlive-plain-generic texlive-science
       - name: Clone repository
-        run: git clone https://salsa.debian.org/math-team/msolve -b ppa
+        run: |
+          git clone https://salsa.debian.org/math-team/msolve
+          cd msolve
+          git checkout debian/${{ matrix.release }}
       - name: Build package
         run: |
           cd msolve
-          NAME="Doug Torrance" EMAIL=dtorrance@debian.org dch --bpo ""
-          gbp buildpackage -us -uc --git-ignore-new
+          uscan --verbose --rename --force-download
+          if test ${{ matrix.os }} = "ubuntu-latest"; \
+          then dpkg-buildpackage; \
+          else dpkg-buildpackage -B; \
+          fi
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: msolve-debian-${{ matrix.release }}-${{ matrix.runner }}-artifacts
+          name: msolve-debian-${{ matrix.release }}-${{ matrix.os }}
           path: |
             *.buildinfo
             *.changes
