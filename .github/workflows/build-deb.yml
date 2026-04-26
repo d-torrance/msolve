@@ -33,10 +33,7 @@ jobs:
         run: |
           cd msolve
           uscan --verbose --rename --force-download
-          if test ${{ matrix.os }} = "ubuntu-latest"; \
-          then dpkg-buildpackage; \
-          else dpkg-buildpackage -B; \
-          fi
+          dpkg-buildpackage
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v6
