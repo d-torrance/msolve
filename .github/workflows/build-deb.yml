@@ -19,7 +19,7 @@ jobs:
       - name: Install dependencies
         run: |
           apt-get update
-          apt-get install -y autoconf automake biber git git-buildpackage      \
+          apt-get install -y autoconf automake biber git devcripts             \
               help2man libflint-dev libtool make texlive-bibtex-extra          \
               texlive-fonts-extra texlive-fonts-recommended texlive-latex-base \
               texlive-latex-extra texlive-latex-recommended                    \
